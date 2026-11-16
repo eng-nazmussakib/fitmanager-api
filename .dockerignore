@@ -1,0 +1,11 @@
+node_modules
+coverage
+storage
+.git
+.husky
+.vscode
+.env.local
+*.log
+Dockerfile
+.dockerignore
+load-test

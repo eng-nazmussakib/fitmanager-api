@@ -1,0 +1,2 @@
+# Lints + formats the staged files; a rule violation blocks the commit.
+npx lint-staged

@@ -1,0 +1,130 @@
+# VS Code REST Client (humao.rest-client), like the projects' rest/*.rest files. `npm run dev` first.
+# Run "login", then the other requests reuse its tokens.
+@base = http://localhost:3000
+@api = {{base}}/api/v1
+# Seeded branch ids (fitmanager-infra/db/seeds/demo/001_branches_and_staff.sql). Rules come from the assignment at X-Branch-Id (D-034).
+@hq = 00000000-0000-4000-8000-000000000001
+@gulshan = 00000000-0000-4000-8000-000000000002
+
+### Health and metrics (outside /api: not exposed through nginx)
+GET {{base}}/health/ready
+
+###
+GET {{base}}/metrics
+
+### @name login
+POST {{api}}/auth/login
+Content-Type: application/json
+
+{ "username": "owner", "password": "Owner@123" }
+
+###
+@token = {{login.response.body.data.access_token}}
+@refresh = {{login.response.body.data.refresh_token}}
+
+### Who am I: global rules + one assignment per branch, each with its rules
+GET {{api}}/auth/me
+Authorization: Bearer {{token}}
+
+### Rotate the refresh token (the old one stops working)
+POST {{api}}/auth/refresh
+Content-Type: application/json
+
+{ "refresh_token": "{{refresh}}" }
+
+### Lookups
+GET {{api}}/ddl?ddl_key=category
+Authorization: Bearer {{token}}
+
+### List: paging, search, filter, sort
+GET {{api}}/items?offset=0&limit=5&search_text=alpha&status=Active&sort_by=amount&sort_order=desc
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### @name create
+POST {{api}}/items
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{
+  "name_en": "Created From REST",
+  "category_oid": "C1",
+  "contact_mobile": "01712345678",
+  "effective_date": "2026-01-15",
+  "amount": 1250000,
+  "status": "Active",
+  "attachment": null,
+  "lines": [{ "label": "Note", "value": "From requests.http" }]
+}
+
+###
+@item = {{create.response.body.data.oid}}
+
+### Validation errors, one per field
+POST {{api}}/items
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "name_en": "", "contact_mobile": "123" }
+
+### Server-side PDF (needs CHROME_PATH)
+GET {{api}}/items/{{item}}/pdf
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Export (format=csv | xlsx)
+GET {{api}}/items/export?format=xlsx&status=Active
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Delete
+DELETE {{api}}/items/{{item}}
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Upload (type decided by content)
+POST {{api}}/files/upload
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=b
+
+--b
+Content-Disposition: form-data; name="file"; filename="note.pdf"
+Content-Type: application/pdf
+
+%PDF-1.4 sample
+--b--
+
+### One-time code: the code is in the dev server log (mail is logged, not sent)
+# @name otp
+POST {{api}}/otp/send
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "email": "someone@example.com" }
+
+###
+POST {{api}}/otp/verify
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "otp_id": "{{otp.response.body.data.otp_id}}", "code": "000000" }
+
+### Sign out of this session
+POST {{api}}/auth/logout
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{ "refresh_token": "{{refresh}}" }
+
+### Public site groups (D-040): each group's landing section and page switches
+GET {{api}}/public/site-groups
+
+### Blog off the home page, its page kept (a required group answers 409)
+PATCH {{api}}/hq/site-groups/blog
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "section": false, "page": true }

@@ -1,0 +1,52 @@
+import { createMongoAbility, type MongoAbility, type RawRuleOf } from '@casl/ability';
+
+/**
+ * The authorization vocabulary (D-034), the same as the web app's `core/auth/ability.ts`: same actions, same
+ * subjects, same rule JSON. The API sends a user's rules in /v1/auth/me and enforces the SAME rules on every call,
+ * so a hidden button and a refused request can never disagree.
+ *
+ * One subject per screen or entity:
+ * - branch: Dashboard, Member, Subscription, Payment, Invoice, CashClosing, Attendance, AttendanceOverride, Class,
+ *   Booking, Plan, Trainer, Report;
+ * - HQ: HqDashboard, Branch, PlanTemplate, Staff, Settings;
+ * - member portal: Portal.
+ *
+ * `Item` is the skeleton's CRUD example (`features/items`), kept as a pattern reference until the phase 2 member
+ * CRUD replaces it. No role grants it except OWNER (`manage all`); the web app does not know it.
+ */
+export type Action = 'manage' | 'read' | 'create' | 'update' | 'delete' | 'export';
+export type Subject =
+    | 'Dashboard'
+    | 'Member'
+    | 'Subscription'
+    | 'Payment'
+    | 'Invoice'
+    | 'CashClosing'
+    | 'Attendance'
+    | 'AttendanceOverride'
+    | 'Class'
+    | 'Booking'
+    | 'Plan'
+    | 'Trainer'
+    | 'Report'
+    | 'HqDashboard'
+    | 'Branch'
+    | 'PlanTemplate'
+    | 'Staff'
+    | 'Settings'
+    | 'Portal'
+    | 'Item'
+    | 'all';
+export type AppAbility = MongoAbility<[Action, Subject]>;
+export type AppRule = RawRuleOf<AppAbility>;
+
+/** Rules that do not depend on a branch, by kind of user. Staff get everything from their assignments. */
+export const GLOBAL_RULES: Record<'staff' | 'member', AppRule[]> = {
+    staff: [],
+    member: [{ action: 'manage', subject: 'Portal' }]
+};
+
+/** No rules → nothing allowed. Fail-closed by construction. */
+export function createAbility(rules: AppRule[] = []): AppAbility {
+    return createMongoAbility<AppAbility>(rules);
+}

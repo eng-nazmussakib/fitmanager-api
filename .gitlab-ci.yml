@@ -1,0 +1,64 @@
+# Same flow as the project pipelines (branch → environment, build an image, update the Swarm service), plus:
+# - the image build runs format, typecheck, lint and the tests (Dockerfile `test` stage) and stops on a failure;
+# - secrets reach the app as files (/run/secrets/...) through the *_FILE variables, the config as /app/.env;
+# - migrations are NOT run here (D-039): fitmanager-infra's pipeline applies them (db-migrate-*), and a schema
+#   change must be migrated there before an API version that needs it is deployed;
+# - Swarm rolls back by itself when the new container fails its HEALTHCHECK.
+variables:
+  # Clone URL of fitmanager-infra (the tests build their databases with its db runner), set as a CI/CD variable
+  # with a read-only deploy token.
+  INFRA_REPO_URL: ''
+  IMAGE_NAME: 'skeleton_api'
+  NETWORK: 'app_net'
+
+stages: [verify, deploy]
+
+verify:
+  stage: verify
+  image: node:26-alpine # keep in sync with .nvmrc and the Dockerfile
+  cache:
+    key: { files: [package-lock.json] }
+    paths: [.npm/]
+  script:
+    # The tests use fitmanager-infra/db (runner, migrations, demo seeds), fetched next to this repo.
+    - git clone --depth 1 "${INFRA_REPO_URL}" ../fitmanager-infra
+    - npm ci --cache .npm --prefer-offline --ignore-scripts
+    - npm run format:check
+    - npm run typecheck
+    - npm run lint
+    - npm run test:ci
+  coverage: '/Lines\s*:\s*(\d+\.?\d*)%/'
+  artifacts:
+    when: always
+    expire_in: 1 week
+    paths: [coverage/]
+
+.deploy: &deploy
+  stage: deploy
+  script:
+    - export VERSION=$(date +%Y%m%d_%H%M%S)
+    - git clone --depth 1 "${INFRA_REPO_URL}" ../fitmanager-infra
+    - docker build --build-context db=../fitmanager-infra/db --tag=${IMAGE_NAME}:${VERSION} --build-arg APP_VERSION=${VERSION} .
+    - SECRETS="--secret source=${ENV}_skeleton_database_url,target=skeleton_database_url --secret source=${ENV}_skeleton_jwt_secret,target=skeleton_jwt_secret"
+    - CONFIG="--config source=${ENV}_skeleton_api_env,target=/app/.env"
+    - >
+      if docker service ls --filter name="${SERVICE_NAME}" --format "{{.Name}}" | grep -qx "${SERVICE_NAME}"; then
+        docker service update --image ${IMAGE_NAME}:${VERSION} --update-order start-first --update-failure-action rollback --update-monitor 30s ${SERVICE_NAME}
+      else
+        docker service create --name ${SERVICE_NAME} --replicas 2 --network ${NETWORK} --stop-grace-period 10s
+        --mount type=volume,source=${SERVICE_NAME}_uploads,destination=/data/uploads
+        ${SECRETS} ${CONFIG} ${IMAGE_NAME}:${VERSION}
+      fi
+
+deploy-dev:
+  <<: *deploy
+  variables: { ENV: dev, SERVICE_NAME: 'skeleton_api_dev' }
+  only: [dev]
+  tags: [dev]
+
+deploy-prod:
+  <<: *deploy
+  variables: { ENV: prod, SERVICE_NAME: 'skeleton_api_prod' }
+  when: manual
+  only: [main]
+  tags: [prod]

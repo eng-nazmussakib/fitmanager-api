@@ -1,0 +1,90 @@
+{
+  "name": "express-skeleton",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "engines": {
+    "node": ">=24.12.0"
+  },
+  "imports": {
+    "#src/*": "./src/*"
+  },
+  "scripts": {
+    "dev": "node --watch --env-file=.env.development --env-file-if-exists=.env.local --import ./src/instrument.ts src/server.ts",
+    "start": "node --import ./src/instrument.ts src/server.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:pg": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run",
+    "test:ci": "vitest run --coverage",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "validate": "npm run format:check && npm run typecheck && npm run lint && npm run test:ci",
+    "prepare": "husky || true"
+  },
+  "lint-staged": {
+    "*.ts": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,yml,sql}": [
+      "prettier --write --ignore-unknown"
+    ]
+  },
+  "dependencies": {
+    "@casl/ability": "^7.1.1",
+    "@sentry/node": "^11.11.0",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "croner": "^11.0.0",
+    "exceljs": "^4.4.0",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.4",
+    "file-type": "^22.3.0",
+    "handlebars": "^4.7.10",
+    "helmet": "^8.3.0",
+    "ioredis": "^6.0.0",
+    "jose": "^6.2.17",
+    "multer": "^2.5.0",
+    "nodemailer": "^10.5.0",
+    "pg": "^8.23.1",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "prom-client": "^15.1.3",
+    "puppeteer-core": "^25.16.0",
+    "rate-limit-redis": "^6.0.2",
+    "sanitize-html": "^2.18.1",
+    "valibot": "^1.5.0"
+  },
+  "overrides": {
+    "rolldown": "1.2.16",
+    "uuid": "^11.1.1"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.16",
+    "@electric-sql/pglite-socket": "^0.2.19",
+    "@eslint/js": "^10.0.1",
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^26.6.6",
+    "@types/nodemailer": "^8.0.2",
+    "@types/pg": "^8.23.1",
+    "@types/sanitize-html": "^2.16.2",
+    "@types/supertest": "^7.2.1",
+    "@vitest/coverage-v8": "^5.1.0",
+    "eslint": "^10.14.0",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-simple-import-sort": "^14.0.0",
+    "globals": "^17.14.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.6.0",
+    "pino-pretty": "^13.2.0",
+    "prettier": "^3.9.10",
+    "supertest": "^7.3.2",
+    "typescript": "~6.0.3",
+    "typescript-eslint": "^8.72.2",
+    "vitest": "^5.1.0"
+  }
+}
