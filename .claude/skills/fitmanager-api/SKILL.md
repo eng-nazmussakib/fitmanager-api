@@ -34,7 +34,7 @@ npm run typecheck    # Node strips types without checking them, so always run th
 npm run lint         # type-checked ESLint
 npm test             # Vitest (watch); npm run test:ci for one run with coverage
 npm run test:pg      # one run on the local PostgreSQL 17 (TEST_DATABASE_URL in .env.local): a throwaway fm_test_* database per test file
-npm run validate     # format check + typecheck + lint + tests (the CI gate). Run before saying work is done.
+npm run validate     # format check + typecheck + lint + tests (no CI for now, D-046). Run before saying work is done.
 docker compose up -d # Postgres 18, Redis, Mailpit for running like a server
 ```
 
@@ -70,7 +70,7 @@ There is **no build step**: Node runs the `.ts` files (type stripping). Only era
 
 Production runs on **Neon** (Postgres 18, pooled through PgBouncer in transaction mode). Development uses a local Postgres 18 container. Write everything so the move is only a change of connection strings (details: `../fitmanager-infra/docs/02-architecture.md` §2):
 
-- Prisma: the `pg` driver adapter (`@prisma/adapter-pg`, `pg` ≥ 8.16.3), on `DATABASE_URL` locally and the Hyperdrive binding on Workers (D-024). Migrations, `pg_dump` and seeds use `DIRECT_URL` (owner role), run from CI or a laptop, never from a Worker.
+- Prisma: the `pg` driver adapter (`@prisma/adapter-pg`, `pg` ≥ 8.16.3), on `DATABASE_URL` locally and the Hyperdrive binding on Workers (D-024). Migrations, `pg_dump` and seeds use `DIRECT_URL` (owner role), run from a laptop (no CI for now, D-046), never from a Worker.
 - **No session state on the app connection:** branch context only through `set_config(…, true)` inside the request transaction; no session `SET`, no session advisory locks, no `LISTEN/NOTIFY`, no temp tables that outlive a transaction. (The skeleton's migration and job locks are already transaction-scoped, `pg_advisory_xact_lock`; keep any new lock that way.)
 - **The database lives in `../fitmanager-infra/db/` (D-033, D-039), and the API never migrates or seeds:** migrations (`migrations/NNN_name.sql`), demo seeds (`seeds/demo/NNN_name.sql`, SQL with precomputed password hashes), the runner (`tools/runner.ts`, `npm run migrate | seed | status` there), the roles script and the local Postgres 18 compose file. A schema change is a new migration file there plus, if demo data needs it, a seed file; never code in this repo. The API's tests build their databases with that runner (`src/testing/test-app.ts`); demo ids for tests are in `src/testing/demo.ts`. Docker builds take the folder as a named context: `docker build --build-context db=../fitmanager-infra/db .`.
 - Roles (`fitmanager_owner`, `fitmanager_app` with `NOBYPASSRLS`) come from the versioned script `../fitmanager-infra/db/roles/001_roles.sql`, run on both databases, never from a Docker-only init file or the Neon Console.

@@ -1,3 +1,6 @@
+# DISABLED (D-046): CI/CD is off while the app deploys through Cloudflare's Git integration (Workers Builds).
+# Kept for when a custom VM is used: rename back to .gitlab-ci.yml to turn it on again.
+#
 # Same flow as the project pipelines (branch → environment, build an image, update the Swarm service), plus:
 # - the image build runs format, typecheck, lint and the tests (Dockerfile `test` stage) and stops on a failure;
 # - secrets reach the app as files (/run/secrets/...) through the *_FILE variables, the config as /app/.env;
