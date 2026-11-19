@@ -1,61 +1,85 @@
-import { randomUUID } from 'node:crypto';
-import { mkdir, writeFile } from 'node:fs/promises';
-import { join, resolve } from 'node:path';
+import express, { type Response, Router } from 'express';
 
-import { Router } from 'express';
-import { fileTypeFromBuffer } from 'file-type';
-import multer from 'multer';
-
-import { authenticate } from '#src/auth/middleware.ts';
+import { authenticate, requireAbility, requireBranch } from '#src/auth/middleware.ts';
 import type { AppDeps } from '#src/container.ts';
-import { AppError, ok } from '#src/lib/http.ts';
-import { log } from '#src/lib/logger.ts';
+import { branchContext } from '#src/db/tenancy.ts';
+import { ok, parse } from '#src/lib/http.ts';
 
-/** What may be uploaded, decided by the file's CONTENT (magic bytes), not by its name or the browser's claim. */
-const ALLOWED = new Map([
-    ['image/jpeg', 'jpg'],
-    ['image/png', 'png'],
-    ['application/pdf', 'pdf']
-]);
-const STORED_NAME = /^[0-9a-f-]{36}\.(jpg|png|pdf)$/;
+import type { FileRow } from './files.repo.ts';
+import { fileParams, startSchema, uploadQuery } from './files.schema.ts';
+import { completeUpload, deleteFile, type FileDeps, readByViewToken, readFileContent, receiveLocalUpload, startUpload } from './files.service.ts';
 
 /**
- * Upload and download. Fixes of the SPN/ACAS upload route:
- * - The type was checked by file EXTENSION only (`evil.html` renamed to `.png` passed) → file-type reads the
- *   first bytes, and the stored extension comes from what the content really is.
- * - `file_data.pipe(fs.createWriteStream(...))` was never awaited, so "Successfully uploaded" was sent before
- *   the file was written, and a write error was lost → the file is written (and awaited) before answering.
- * - Errors answered HTTP 200 with codes 201/202/203 in the body → 400, 413 and 415.
- * - `fs.mkdirSync(dir)` per request, failing on nested folders → one recursive mkdir.
- * Names are random UUIDs; the original name is never used as a path. Download validates the name against the
- * same pattern and serves it with `root`, so `../` cannot leave the upload folder.
- * For many large files, stream to object storage (S3/MinIO) instead of memory + local disk.
+ * Files (phase 2 step 2; D-058, D-069). Member photos and documents of the branch in `X-Branch-Id`:
+ * - `POST /v1/files` → `{ file, upload }`: a pending row and where to PUT the bytes (`create Member`);
+ * - `PUT /v1/files/:oid/content?token=`: the local store's stand-in for a signed bucket URL (no session; the
+ *   token names the file and expires in 10 minutes);
+ * - `POST /v1/files/:oid/complete`: the API checks the stored bytes and marks the file ready (audited);
+ * - `GET /v1/files/:oid`: the bytes, after the branch and permission check (`read Member`);
+ * - `GET /v1/files/:oid/view?token=`: the same bytes for a signed link (`viewUrl()`), for `<img>` tags;
+ * - `DELETE /v1/files/:oid` (`update Member`, audited).
  */
 export function filesRouter(deps: AppDeps): Router {
-    const { config } = deps;
-    const dir = resolve(config.upload.dir);
     const router = Router();
-    const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: config.upload.maxBytes, files: 1, fields: 10 } });
+    const fileDeps: FileDeps = {
+        db: deps.db,
+        files: deps.files,
+        jwtSecret: deps.config.auth.jwtSecret,
+        apiPrefix: deps.config.apiPrefix,
+        storageLimitBytes: deps.config.files.storageLimitBytes
+    };
+    const branch = [authenticate(deps), requireBranch('BRANCH')];
 
-    router.post('/v1/files/upload', authenticate(deps), upload.single('file'), async (req, res) => {
-        const file = req.file;
-        if (!file) throw new AppError(400, 'No file received', [{ path: 'file', message: 'Required' }]);
-        const type = await fileTypeFromBuffer(file.buffer);
-        const ext = type && ALLOWED.get(type.mime);
-        if (!ext) throw new AppError(415, 'Only JPG, PNG or PDF files are allowed');
-
-        const fileName = `${randomUUID()}.${ext}`;
-        await mkdir(dir, { recursive: true });
-        await writeFile(join(dir, fileName), file.buffer, { flag: 'wx' });
-        log().info({ fileName, bytes: file.size, mime: type.mime }, 'File uploaded');
-        ok(res, { file_name: fileName, url: `${config.apiPrefix}/v1/files/${fileName}` }, 'File uploaded', 201);
+    router.post('/v1/files', ...branch, requireAbility('create', 'Member'), async (req, res) => {
+        const body = parse(startSchema, req.body);
+        ok(res, await startUpload(fileDeps, branchContext(req), body), 'Upload the file to the URL given', 201);
     });
 
-    router.get('/v1/files/:name', authenticate(deps), (req, res) => {
-        const name = String(req.params['name'] ?? '');
-        if (!STORED_NAME.test(name)) throw new AppError(404, 'File not found');
-        // `nosniff` + an explicit type: the browser never guesses the content into something executable.
-        res.sendFile(name, { root: dir, dotfiles: 'deny', headers: { 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'private, max-age=3600' } });
+    router.put('/v1/files/:oid/content', express.raw({ type: () => true, limit: '6mb' }), async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        const { token } = parse(uploadQuery, req.query);
+        const body = Buffer.isBuffer(req.body) ? new Uint8Array(req.body) : new Uint8Array();
+        await receiveLocalUpload(fileDeps, oid, token, body, req.get('content-type') ?? 'application/octet-stream');
+        ok(res, null, 'Uploaded');
+    });
+
+    router.post('/v1/files/:oid/complete', ...branch, requireAbility('create', 'Member'), async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        ok(res, await completeUpload(fileDeps, branchContext(req), oid), 'File saved');
+    });
+
+    const send = (res: Response, file: FileRow, body: Uint8Array, maxAge: number) => {
+        // `nosniff` + the type we checked: the browser never guesses the bytes into something executable.
+        res.set({
+            'Content-Type': file.content_type,
+            'X-Content-Type-Options': 'nosniff',
+            'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
+            'Cache-Control': `private, max-age=${maxAge}`,
+            'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
+            // The signed link carries its own permission; never send it on to another site.
+            'Referrer-Policy': 'no-referrer'
+        });
+        res.end(Buffer.from(body));
+    };
+
+    router.get('/v1/files/:oid', ...branch, requireAbility('read', 'Member'), async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        const { file, body } = await readFileContent(fileDeps, branchContext(req), oid);
+        send(res, file, body, 300);
+    });
+
+    // `<img src>` and "open in a new tab": the token from `viewUrl()` is the permission (1 hour).
+    router.get('/v1/files/:oid/view', async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        const { token } = parse(uploadQuery, req.query);
+        const { file, body } = await readByViewToken(fileDeps, oid, token);
+        send(res, file, body, 3000);
+    });
+
+    router.delete('/v1/files/:oid', ...branch, requireAbility('update', 'Member'), async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        await deleteFile(fileDeps, branchContext(req), oid);
+        ok(res, null, 'File deleted');
     });
 
     return router;

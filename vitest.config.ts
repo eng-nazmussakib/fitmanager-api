@@ -19,7 +19,7 @@ export default defineConfig({
             provider: 'v8',
             reporter: ['text-summary', 'html', 'lcov'],
             include: ['src/**/*.ts'],
-            exclude: ['src/**/*.test.ts', 'src/testing/**', 'src/server.ts', 'src/instrument.ts', 'src/db/cli.ts', 'src/types/**']
+            exclude: ['src/**/*.test.ts', 'src/testing/**', 'src/server.ts', 'src/types/**']
         }
     }
 });

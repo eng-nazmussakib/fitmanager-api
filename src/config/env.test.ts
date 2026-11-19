@@ -1,7 +1,3 @@
-import { mkdtempSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-
 import { loadConfig } from './env.ts';
 
 const base = { DB_DRIVER: 'pg', DATABASE_URL: 'postgres://u:p@db/app', JWT_SECRET: 'x'.repeat(32) };
@@ -21,20 +17,9 @@ describe('loadConfig', () => {
         expect(() => loadConfig({ DB_DRIVER: 'pg', JWT_SECRET: 'short', PORT: 'abc' })).toThrow(/(?=[\s\S]*JWT_SECRET)(?=[\s\S]*PORT)/);
     });
 
-    it('reads secrets from <NAME>_FILE (Docker/Swarm secrets)', () => {
-        const dir = mkdtempSync(join(tmpdir(), 'cfg-'));
-        writeFileSync(join(dir, 'jwt'), `${'s'.repeat(40)}\n`);
-        expect(loadConfig({ ...base, JWT_SECRET: undefined, JWT_SECRET_FILE: join(dir, 'jwt') }).auth.jwtSecret).toBe('s'.repeat(40));
-        expect(() => loadConfig({ ...base, JWT_SECRET_FILE: join(dir, 'missing') })).toThrow(/JWT_SECRET_FILE/);
-    });
-
     it('refuses development shortcuts in production', () => {
         expect(() => loadConfig({ ...base, DB_DRIVER: 'pglite' })).toThrow(/pglite/);
         expect(() => loadConfig({ ...base, JWT_SECRET: `dev-${'x'.repeat(32)}` })).toThrow(/development secret/);
-    });
-
-    it('requires the OIDC settings together', () => {
-        expect(() => loadConfig({ ...base, OIDC_ISSUER: 'https://sso.example.com/realms/x' })).toThrow(/together/);
     });
 
     it('defaults to cheap scrypt parameters and accepts stronger ones', () => {

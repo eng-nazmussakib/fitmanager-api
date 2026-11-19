@@ -1,0 +1,93 @@
+import { endDate, invoiceDue, invoiceStatus, type PriceInput, type Promo, quote } from './pricing.ts';
+
+// The cases of the web mock's pricing.spec.ts (fitmanager-web src/app/mock/domain), plus VAT-inclusive (D-057).
+const PROMOS: Promo[] = [
+    { code: 'NOADMISSION', label: 'No admission fee', waive_admission: true, from: '2026-11-01', to: '2026-11-30' },
+    { code: 'STUDENT10', label: '10% student discount', percent: 10, from: '2026-01-01', to: '2026-12-31' },
+    { code: 'OLD', label: 'Expired', amount: 500, from: '2025-01-01', to: '2025-12-31' }
+];
+
+function input(over: Partial<PriceInput> = {}): PriceInput {
+    return {
+        plan_name: 'Single · Monthly',
+        price: 3000,
+        months: 1,
+        admission_fee: 2000,
+        charge_admission: true,
+        discount: { kind: 'none', value: 0 },
+        start_date: '2026-11-15',
+        today: '2026-11-15',
+        vat_rate: 0.05,
+        vat_inclusive: false,
+        promos: PROMOS,
+        ...over
+    };
+}
+
+describe('pricing, VAT exclusive (as the mock)', () => {
+    it.each([
+        ['plan + admission + 5% VAT', input(), 5000, 0, 250, 5250],
+        ['renewal: no admission', input({ charge_admission: false }), 3000, 0, 150, 3150],
+        ['fixed discount', input({ charge_admission: false, discount: { kind: 'amount', value: 500 } }), 3000, 500, 125, 2625],
+        ['percent discount applies to the plan only', input({ discount: { kind: 'percent', value: 10 } }), 5000, 300, 235, 4935],
+        ['percent above 100 is capped', input({ charge_admission: false, discount: { kind: 'percent', value: 150 } }), 3000, 3000, 0, 0],
+        ['discount never exceeds the subtotal', input({ charge_admission: false, discount: { kind: 'amount', value: 9999 } }), 3000, 3000, 0, 0],
+        ['promo waives the admission fee', input({ discount: { kind: 'promo', value: 0, code: 'noadmission' } }), 3000, 0, 150, 3150],
+        ['promo percent', input({ charge_admission: false, discount: { kind: 'promo', value: 0, code: 'STUDENT10' } }), 3000, 300, 135, 2835]
+    ])('%s', (_name, i, subtotal, discount, vat, total) => {
+        const q = quote(i);
+        expect([q.subtotal, q.discount, q.vat, q.total]).toEqual([subtotal, discount, vat, total]);
+        expect(q.promo_error).toBeNull();
+    });
+
+    it('rejects unknown and expired promo codes, and charges full price', () => {
+        expect(quote(input({ discount: { kind: 'promo', value: 0, code: 'NOPE' } })).promo_error).toBe('This promo code does not exist.');
+        const expired = quote(input({ discount: { kind: 'promo', value: 0, code: 'OLD' } }));
+        expect(expired).toMatchObject({ promo_error: 'This promo code has expired.', promo_code: null, total: 5250 });
+    });
+
+    it('reports the applied promo code and the discount as a share of the plan price', () => {
+        expect(quote(input({ discount: { kind: 'promo', value: 0, code: ' student10 ' } }))).toMatchObject({ promo_code: 'STUDENT10', discount_percent: 10 });
+        expect(quote(input({ discount: { kind: 'amount', value: 750 } })).discount_percent).toBe(25);
+        expect(quote(input({ price: 0, discount: { kind: 'amount', value: 100 } })).discount_percent).toBe(0);
+    });
+});
+
+describe('pricing, VAT inclusive (D-057)', () => {
+    it.each([
+        ['15% inside 5000', input({ vat_rate: 0.15, vat_inclusive: true }), 5000, 0, 652, 5000],
+        ['5% inside 3150 after a discount', input({ vat_inclusive: true, discount: { kind: 'amount', value: 1850 } }), 5000, 1850, 150, 3150],
+        ['rate 0: no VAT either way', input({ vat_rate: 0, vat_inclusive: true }), 5000, 0, 0, 5000]
+    ])('%s', (_name, i, subtotal, discount, vat, total) => {
+        const q = quote(i);
+        expect([q.subtotal, q.discount, q.vat, q.total]).toEqual([subtotal, discount, vat, total]);
+        expect(q.vat_inclusive).toBe(true);
+    });
+});
+
+describe('membership end date', () => {
+    it.each([
+        ['2026-11-15', 1, '2026-12-14'],
+        ['2026-01-31', 1, '2026-02-28'],
+        ['2026-11-01', 12, '2027-10-31'],
+        ['2026-08-31', 6, '2027-02-28']
+    ])('from %s for %i month(s) ends on %s', (start, months, end) => {
+        expect(endDate(start, months)).toBe(end);
+    });
+});
+
+describe('invoice dues and status after refunds (D-067 a)', () => {
+    it.each([
+        // total, paid in, refunded → due, status
+        [6325, 0, 0, 6325, 'Due'],
+        [6325, 3000, 0, 3325, 'Partial'],
+        [6325, 6325, 0, 0, 'Paid'],
+        [6325, 6325, 6325, 0, 'Refunded'], // full refund: the plan was taken back
+        [6325, 3000, 3000, 0, 'Refunded'], // a part-paid invoice refunded in full owes nothing either
+        [12650, 12650, 2000, 0, 'Paid'], // partial refund: the refund never becomes dues
+        [12650, 5000, 1000, 7650, 'Partial'] // what was never paid is still owed
+    ])('total %i, paid %i, refunded %i → due %i, %s', (total, paid, refunded, due, status) => {
+        expect(invoiceDue(total, paid, refunded)).toBe(due);
+        expect(invoiceStatus(total, paid, refunded)).toBe(status);
+    });
+});

@@ -12,7 +12,7 @@ import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
 export default defineConfig(
-    { ignores: ['node_modules/**', 'coverage/**', 'storage/**', 'eslint.config.mjs', '.prettierrc.mjs'] },
+    { ignores: ['node_modules/**', 'coverage/**', 'storage/**', '.wrangler/**', 'eslint.config.mjs', '.prettierrc.mjs'] },
     {
         files: ['**/*.ts'],
         extends: [eslint.configs.recommended, tseslint.configs.strictTypeChecked, tseslint.configs.stylisticTypeChecked, prettier],
@@ -29,7 +29,21 @@ export default defineConfig(
             '@typescript-eslint/no-misused-promises': ['error', { checksVoidReturn: { arguments: false } }],
             // Log through pino (structured, redacted), never console.
             'no-console': 'error',
-            eqeqeq: ['error', 'smart']
+            eqeqeq: ['error', 'smart'],
+            // Two hosting targets (D-027, D-050): Cloudflare Workers and a VM. Only the Workers entry may use
+            // Cloudflare's runtime modules; everything else runs on plain Node.
+            'no-restricted-imports': [
+                'error',
+                {
+                    patterns: [
+                        {
+                            regex: '^cloudflare:',
+                            message:
+                                'Cloudflare modules only in src/worker.ts and src/worker/: put the feature behind an AppDeps interface, so the app still runs on Node for local development and tests.'
+                        }
+                    ]
+                }
+            ]
         }
     },
     {
@@ -41,9 +55,8 @@ export default defineConfig(
         }
     },
     {
-        // k6 scripts run in k6's own JavaScript runtime, not Node.
-        files: ['load-test/**/*.js'],
-        extends: [eslint.configs.recommended, prettier],
-        languageOptions: { globals: { __ENV: 'readonly' } }
+        // The Workers entry and its Durable Objects are the one place that adapts the app to Cloudflare (local dev and tests run on Node).
+        files: ['src/worker.ts', 'src/worker/**/*.ts', 'src/types/cloudflare-*.d.ts'],
+        rules: { 'no-restricted-imports': 'off' }
     }
 );

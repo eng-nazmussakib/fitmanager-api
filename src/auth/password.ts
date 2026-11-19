@@ -61,7 +61,7 @@ const dummies = new Map<string, Promise<string>>();
 
 /**
  * Burns the same time as a real check when the user does not exist. Otherwise "unknown user" answers faster than
- * "wrong password" and reveals which usernames exist (SPN answered the two with different MESSAGES as well).
+ * "wrong password" and reveals which usernames exist.
  */
 export async function verifyAgainstDummy(password: string, params: ScryptParams = DEFAULT_SCRYPT_PARAMS): Promise<false> {
     const key = `${params.N}$${params.r}$${params.p}`;

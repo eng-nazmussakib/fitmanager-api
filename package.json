@@ -1,5 +1,5 @@
 {
-  "name": "express-skeleton",
+  "name": "fitmanager-api",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -10,8 +10,7 @@
     "#src/*": "./src/*"
   },
   "scripts": {
-    "dev": "node --watch --env-file=.env.development --env-file-if-exists=.env.local --import ./src/instrument.ts src/server.ts",
-    "start": "node --import ./src/instrument.ts src/server.ts",
+    "dev": "node --watch --env-file=.env.development --env-file-if-exists=.env.local src/server.ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest",
     "test:pg": "node --env-file-if-exists=.env.local node_modules/vitest/vitest.mjs run",
@@ -21,6 +20,9 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "validate": "npm run format:check && npm run typecheck && npm run lint && npm run test:ci",
+    "worker:dev": "wrangler dev --port 8787",
+    "worker:db": "node node_modules/@electric-sql/pglite-socket/dist/scripts/server.js --db=storage/pglite-worker --port=5433",
+    "worker:check": "wrangler check startup --outfile storage/startup.cpuprofile",
     "prepare": "husky || true"
   },
   "lint-staged": {
@@ -34,27 +36,17 @@
   },
   "dependencies": {
     "@casl/ability": "^7.1.1",
-    "@sentry/node": "^11.11.0",
+    "aws4fetch": "^1.0.20",
     "bcryptjs": "^3.0.3",
     "cors": "^2.8.6",
-    "croner": "^11.0.0",
-    "exceljs": "^4.4.0",
     "express": "^5.3.0",
     "express-rate-limit": "^8.7.4",
     "file-type": "^22.3.0",
-    "handlebars": "^4.7.10",
     "helmet": "^8.3.0",
-    "ioredis": "^6.0.0",
     "jose": "^6.2.17",
-    "multer": "^2.5.0",
-    "nodemailer": "^10.5.0",
     "pg": "^8.23.1",
     "pino": "^10.4.0",
     "pino-http": "^11.0.0",
-    "prom-client": "^15.1.3",
-    "puppeteer-core": "^25.16.0",
-    "rate-limit-redis": "^6.0.2",
-    "sanitize-html": "^2.18.1",
     "valibot": "^1.5.0"
   },
   "overrides": {
@@ -67,11 +59,8 @@
     "@eslint/js": "^10.0.1",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
-    "@types/multer": "^2.3.0",
     "@types/node": "^26.6.6",
-    "@types/nodemailer": "^8.0.2",
     "@types/pg": "^8.23.1",
-    "@types/sanitize-html": "^2.16.2",
     "@types/supertest": "^7.2.1",
     "@vitest/coverage-v8": "^5.1.0",
     "eslint": "^10.14.0",
@@ -85,6 +74,7 @@
     "supertest": "^7.3.2",
     "typescript": "~6.0.3",
     "typescript-eslint": "^8.72.2",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.162.0"
   }
 }

@@ -5,18 +5,8 @@ import { type Logger, pino } from 'pino';
 /**
  * Structured JSON logs with pino, one line per event, to stdout.
  *
- * Replaces the winston + winston-daily-rotate-file setup copied into every hapi service:
- * - Files rotated INSIDE the container (`log/info/..`, bind-mounted) → stdout. Docker keeps it, and the ACAS
- *   promtail config already ships container stdout to Loki (`docker_sd_configs`); rotation is the log driver's job.
- * - `format.colorize({ all: true })` applied to the FILE transports wrote ANSI escape codes into the logs → colour
- *   only in development (`LOG_PRETTY=true`, pino-pretty).
- * - The trace id kept with `asyncLocalStorage.enterWith()` in an `onRequest` hook (it leaks into whatever runs
- *   next on that async path) → pino-http's request id, kept with `AsyncLocalStorage.run()` for exactly one request.
- * - A regex that masked `password|token|secret` only in a JSON object at the END of a message string, so
- *   `log.debug('Request received - ' + JSON.stringify(payload))` still logged nested passwords → pino `redact`
- *   on structured fields, and request bodies are never logged.
- * - `new Error().stack` parsing on EVERY log call to print file:line → removed (expensive, and the stack of a
- *   logged `err` already says where it happened).
+ * Locally `LOG_PRETTY=true` colours them (pino-pretty); on Workers they go to Workers Logs (free). Request bodies
+ * are never logged, and pino `redact` masks secrets in structured fields.
  */
 const REDACT = [
     'req.headers.authorization',

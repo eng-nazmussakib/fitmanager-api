@@ -2,12 +2,8 @@ import type { Response } from 'express';
 import * as v from 'valibot';
 
 /**
- * The response envelope every frontend in these projects already parses: `{ code, message, data }`.
- *
- * Kept, with one fix: `code` now EQUALS the HTTP status. The hapi services answered business failures with HTTP 200
- * and a made-up `code` in the body (201 'password did not match', 204 'user not found', 203 'unable to upload');
- * 201 and 204 are real HTTP success codes, so proxies, logs, metrics and Sentry all saw a failure as a success.
- * Both skeleton frontends treat `!res.ok || code >= 400` as an error, so they work with either style.
+ * The response envelope the web app parses: `{ code, message, data }`. `code` always EQUALS the HTTP status, so
+ * a failure is never sent as a 2xx. The web app treats `!res.ok || code >= 400` as an error.
  */
 export interface FieldError {
     path: string;

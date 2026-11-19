@@ -10,9 +10,6 @@ import type { Sql } from './sql.ts';
  * The database seam. Repositories only see `Queryable`, so the same SQL runs on:
  * - `pg`: node-postgres connection pool, for every real environment;
  * - `pglite`: PostgreSQL compiled to WebAssembly, in-process. `npm run dev` and the tests need no database server.
- *
- * Oracle (OMS, SIB): put an `oracledb` implementation behind the same interface. Since node-oracledb 6 the default
- * THIN mode needs no Instant Client, so the `node18-oracleclient` base image is not needed either.
  */
 export interface Queryable {
     query<T extends object = Record<string, unknown>>(q: Sql): Promise<T[]>;
@@ -41,18 +38,22 @@ export async function createDb(opts: DbOptions): Promise<Db> {
 }
 
 function createPgDb(opts: DbOptions): Db {
-    // Pool settings the SPN service had right (max, idle and connect timeouts), plus a statement timeout: one slow
-    // query can no longer hold a connection for minutes while the pool runs dry (the ACAS results-day incident).
+    // Max, idle and connect timeouts, plus a statement timeout: one slow query cannot hold a connection for minutes
+    // while the pool runs dry.
     const pool = new pg.Pool({
         connectionString: opts.url,
         max: opts.poolMax ?? 10,
         idleTimeoutMillis: 30_000,
         connectionTimeoutMillis: 5_000,
         statement_timeout: opts.statementTimeoutMs ?? 15_000,
-        application_name: 'skeleton-api'
+        application_name: 'fitmanager-api'
     });
+    // While the pool is being closed, a socket the runtime already closed is expected, not an incident: on Workers
+    // each request's pool ends after its response, and behind a service binding workerd may close the socket first.
+    let closing = false;
     pool.on('error', err => {
-        log().error({ err }, 'Idle PostgreSQL client error');
+        if (closing) log().debug({ err: err.message }, 'PostgreSQL client closed while the pool was ending');
+        else log().error({ err }, 'Idle PostgreSQL client error');
     });
 
     const on = (client: pg.Pool | pg.PoolClient): Queryable => ({
@@ -87,7 +88,10 @@ function createPgDb(opts: DbOptions): Db {
         async ping() {
             await pool.query('select 1');
         },
-        close: () => pool.end()
+        close: () => {
+            closing = true;
+            return pool.end();
+        }
     };
 }
 

@@ -1,6 +1,7 @@
 import request from 'supertest';
 
 import { sql } from '#src/db/sql.ts';
+import { systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
 
@@ -65,5 +66,43 @@ describe('site groups (D-040)', () => {
         await request(t.app).patch('/api/v1/hq/site-groups/blog').set(owner).send({ section: 'no' }).expect(400);
         await request(t.app).patch('/api/v1/hq/site-groups/nope').set(owner).send({ section: false }).expect(404);
         await request(t.app).patch('/api/v1/hq/site-groups/blog').set(desk).send({ section: false }).expect(403);
+    });
+});
+
+describe('site groups: audit log (phase 1)', () => {
+    interface AuditRow {
+        branch_oid: string;
+        actor_name: string | null;
+        action: string;
+        entity_key: string;
+        before: { section: boolean | null } | null;
+        after: { section: boolean | null } | null;
+        request_id: string | null;
+    }
+    const auditFor = (key: string) =>
+        withBranchTx(t.deps.db, systemContext(DEMO_BRANCHES.HQ.oid), tx =>
+            tx.query<AuditRow>(sql`select * from audit_log where entity = 'site_group' and entity_key = ${key} order by created_at`)
+        );
+
+    it('a change writes one audit row at HQ: who, before, after, request id', async () => {
+        const before = (await auditFor('gallery')).length;
+        const res = await request(t.app).patch('/api/v1/hq/site-groups/gallery').set(owner).send({ section: false }).expect(200);
+        const rows = await auditFor('gallery');
+        expect(rows).toHaveLength(before + 1);
+        expect(rows.at(-1)).toMatchObject({
+            branch_oid: DEMO_BRANCHES.HQ.oid,
+            actor_name: 'Kamrul Chowdhury',
+            action: 'update',
+            before: { section: true },
+            after: { section: false },
+            request_id: res.headers['x-request-id']
+        });
+        await request(t.app).patch('/api/v1/hq/site-groups/gallery').set(owner).send({ section: true }).expect(200);
+    });
+
+    it('a refused change writes no audit row (same transaction)', async () => {
+        const before = (await auditFor('plans')).length;
+        await request(t.app).patch('/api/v1/hq/site-groups/plans').set(owner).send({ page: false }).expect(409);
+        expect(await auditFor('plans')).toHaveLength(before);
     });
 });

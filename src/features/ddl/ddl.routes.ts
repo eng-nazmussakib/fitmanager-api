@@ -9,16 +9,17 @@ import { ok, parse } from '#src/lib/http.ts';
 
 interface LookupItem {
     oid: string;
-    name_en: string;
+    name: string;
 }
 
 /**
- * Dropdown lookups: GET /v1/ddl?ddl_key=category&ddl_key=… → `{ category: [...] }` (the `tbl_ddl_data` endpoint
+ * Dropdown lookups: GET /v1/ddl?ddl_key=branch&ddl_key=… → `{ branch: [...] }` (the `tbl_ddl_data` endpoint
  * of the projects, same shape as the frontends expect). Lookups change rarely and every form asks for them, so
  * they are served from the cache. Add a key here, never accept a table name from the query.
  */
 const SOURCES: Record<string, (db: Queryable) => Promise<LookupItem[]>> = {
-    category: db => db.query<LookupItem>(sql`select oid, name_en from category order by sort_order, name_en`)
+    /** Active selling branches, for pickers (transfer target, HQ filters). */
+    branch: db => db.query<LookupItem>(sql`select oid, name from branch where kind = 'BRANCH' and status = 'Active' order by name`)
 };
 
 const querySchema = v.object({

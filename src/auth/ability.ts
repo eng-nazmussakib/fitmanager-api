@@ -9,10 +9,8 @@ import { createMongoAbility, type MongoAbility, type RawRuleOf } from '@casl/abi
  * - branch: Dashboard, Member, Subscription, Payment, Invoice, CashClosing, Attendance, AttendanceOverride, Class,
  *   Booking, Plan, Trainer, Report;
  * - HQ: HqDashboard, Branch, PlanTemplate, Staff, Settings;
+ * - both consoles: AuditLog (read only: HQ at HQ across its branches, a branch manager at their branch);
  * - member portal: Portal.
- *
- * `Item` is the skeleton's CRUD example (`features/items`), kept as a pattern reference until the phase 2 member
- * CRUD replaces it. No role grants it except OWNER (`manage all`); the web app does not know it.
  */
 export type Action = 'manage' | 'read' | 'create' | 'update' | 'delete' | 'export';
 export type Subject =
@@ -34,8 +32,8 @@ export type Subject =
     | 'PlanTemplate'
     | 'Staff'
     | 'Settings'
+    | 'AuditLog'
     | 'Portal'
-    | 'Item'
     | 'all';
 export type AppAbility = MongoAbility<[Action, Subject]>;
 export type AppRule = RawRuleOf<AppAbility>;

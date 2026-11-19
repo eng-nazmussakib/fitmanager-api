@@ -4,9 +4,7 @@
  *     sql`select * from item where oid = ${oid} and status = ${status}`
  *     → { text: 'select * from item where oid = $1 and status = $2', values: [oid, status] }
  *
- * Fragments compose (`sql`... ${where} ...``), so dynamic filters need no manual `$n` counting. Why it matters
- * here: the ACAS admin API built `limit ${request.query.limit} offset ${request.query.offset}` straight into SQL
- * strings (injectable), and every service concatenated `${SCHEMA.PUBLIC}${TABLE.X}` for names. Identifiers that
+ * Fragments compose (`sql`... ${where} ...``), so dynamic filters need no manual `$n` counting. Identifiers that
  * really must be dynamic (an ORDER BY column) go through `sql.raw`, from a whitelist, never from input.
  */
 export class Sql {

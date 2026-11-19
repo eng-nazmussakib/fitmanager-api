@@ -3,3 +3,4 @@ coverage
 storage
 package-lock.json
 *.hbs
+.wrangler

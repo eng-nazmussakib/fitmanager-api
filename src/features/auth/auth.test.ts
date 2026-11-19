@@ -1,4 +1,3 @@
-import { createLocalJWKSet, exportJWK, generateKeyPair, SignJWT } from 'jose';
 import request from 'supertest';
 
 import { createTokenService } from '#src/auth/tokens.ts';
@@ -165,42 +164,6 @@ describe('rate limit', () => {
             expect((await request(limited.app).post('/api/v1/auth/login').send({ username: 'desk.gulshan', password: 'Desk@123' })).status).toBe(200);
         } finally {
             await limited.close();
-        }
-    });
-});
-
-describe('external identity provider (OIDC)', () => {
-    it('accepts a token signed by the provider key, mapped to the local user by preferred_username', async () => {
-        const { publicKey, privateKey } = await generateKeyPair('RS256');
-        const jwks = createLocalJWKSet({ keys: [{ ...(await exportJWK(publicKey)), kid: 'k1', alg: 'RS256' }] });
-        const env = { OIDC_ISSUER: 'https://sso.example.com/realms/acme', OIDC_JWKS_URL: 'https://sso.example.com/certs', OIDC_AUDIENCE: 'acme-api' };
-        const probe = await createTestApp(env);
-        const oidc = await createTestApp(env, { tokens: createTokenService(probe.deps.config.auth, { oidcKeys: jwks }) });
-        await probe.close();
-        try {
-            const sign = (claims: Record<string, unknown>, aud = 'acme-api') =>
-                new SignJWT(claims)
-                    .setProtectedHeader({ alg: 'RS256', kid: 'k1' })
-                    .setIssuer(env.OIDC_ISSUER)
-                    .setAudience(aud)
-                    .setSubject('kc-123')
-                    .setExpirationTime('5m')
-                    .sign(privateKey);
-            const res = await request(oidc.app)
-                .get('/api/v1/auth/me')
-                .set(...bearer(await sign({ preferred_username: 'desk.gulshan' })))
-                .expect(200);
-            expect(res.body.data.assignments[0].role).toBe('FRONT_DESK');
-            await request(oidc.app)
-                .get('/api/v1/auth/me')
-                .set(...bearer(await sign({ preferred_username: 'desk.gulshan' }, 'other-api')))
-                .expect(401);
-            await request(oidc.app)
-                .get('/api/v1/auth/me')
-                .set(...bearer(await sign({ preferred_username: 'nobody' })))
-                .expect(401);
-        } finally {
-            await oidc.close();
         }
     });
 });

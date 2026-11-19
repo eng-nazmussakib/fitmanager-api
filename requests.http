@@ -1,4 +1,4 @@
-# VS Code REST Client (humao.rest-client), like the projects' rest/*.rest files. `npm run dev` first.
+# VS Code REST Client (humao.rest-client). `npm run dev` first.
 # Run "login", then the other requests reuse its tokens.
 @base = http://localhost:3000
 @api = {{base}}/api/v1
@@ -6,11 +6,8 @@
 @hq = 00000000-0000-4000-8000-000000000001
 @gulshan = 00000000-0000-4000-8000-000000000002
 
-### Health and metrics (outside /api: not exposed through nginx)
+### Health (outside /api)
 GET {{base}}/health/ready
-
-###
-GET {{base}}/metrics
 
 ### @name login
 POST {{api}}/auth/login
@@ -33,83 +30,8 @@ Content-Type: application/json
 { "refresh_token": "{{refresh}}" }
 
 ### Lookups
-GET {{api}}/ddl?ddl_key=category
+GET {{api}}/ddl?ddl_key=branch
 Authorization: Bearer {{token}}
-
-### List: paging, search, filter, sort
-GET {{api}}/items?offset=0&limit=5&search_text=alpha&status=Active&sort_by=amount&sort_order=desc
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-
-### @name create
-POST {{api}}/items
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-Content-Type: application/json
-
-{
-  "name_en": "Created From REST",
-  "category_oid": "C1",
-  "contact_mobile": "01712345678",
-  "effective_date": "2026-01-15",
-  "amount": 1250000,
-  "status": "Active",
-  "attachment": null,
-  "lines": [{ "label": "Note", "value": "From requests.http" }]
-}
-
-###
-@item = {{create.response.body.data.oid}}
-
-### Validation errors, one per field
-POST {{api}}/items
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-Content-Type: application/json
-
-{ "name_en": "", "contact_mobile": "123" }
-
-### Server-side PDF (needs CHROME_PATH)
-GET {{api}}/items/{{item}}/pdf
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-
-### Export (format=csv | xlsx)
-GET {{api}}/items/export?format=xlsx&status=Active
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-
-### Delete
-DELETE {{api}}/items/{{item}}
-Authorization: Bearer {{token}}
-X-Branch-Id: {{hq}}
-
-### Upload (type decided by content)
-POST {{api}}/files/upload
-Authorization: Bearer {{token}}
-Content-Type: multipart/form-data; boundary=b
-
---b
-Content-Disposition: form-data; name="file"; filename="note.pdf"
-Content-Type: application/pdf
-
-%PDF-1.4 sample
---b--
-
-### One-time code: the code is in the dev server log (mail is logged, not sent)
-# @name otp
-POST {{api}}/otp/send
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{ "email": "someone@example.com" }
-
-###
-POST {{api}}/otp/verify
-Authorization: Bearer {{token}}
-Content-Type: application/json
-
-{ "otp_id": "{{otp.response.body.data.otp_id}}", "code": "000000" }
 
 ### Sign out of this session
 POST {{api}}/auth/logout
@@ -128,3 +50,153 @@ X-Branch-Id: {{hq}}
 Content-Type: application/json
 
 { "section": false, "page": true }
+
+### HQ settings (D-037, D-057, D-063): VAT rate, BIN, VAT-inclusive prices, freeze range
+GET {{api}}/hq/settings
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Prices include VAT; only the fields sent change (the rate is kept to basis points)
+PATCH {{api}}/hq/settings
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "vat_rate": 0.15, "vat_bin": "000123456-0101", "vat_inclusive": true, "freeze_min_days": 7, "freeze_max_days": 60 }
+
+### Public branches and price list
+GET {{api}}/public/branches
+
+###
+GET {{api}}/public/plans?branch=gulshan
+
+### What the desk sells at Gulshan
+GET {{api}}/plans
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### HQ: a branch profile (only the fields sent change)
+PATCH {{api}}/hq/branches/{{gulshan}}
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "capacity": 120, "hours": [{ "days": [6, 0, 1, 2, 3, 4], "open": "07:00", "close": "23:00" }, { "days": [5], "open": "16:00", "close": "21:00" }] }
+
+### HQ: plan templates, every branch's plans, promo codes
+GET {{api}}/hq/plan-templates
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+###
+GET {{api}}/hq/plans?branch_oid={{gulshan}}
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### A promo code: one effect (percent, amount or waive_admission)
+POST {{api}}/hq/promos
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "code": "EID25", "label": "Eid offer", "percent": 25, "valid_from": "2026-12-01", "valid_to": "2026-12-15" }
+
+### Staff at HQ (D-055): rows with assignments and `manageable`, plus the roles you may hand out
+GET {{api}}/hq/staff?status=Active
+Authorization: Bearer {{login.response.body.data.access_token}}
+X-Branch-Id: {{hq}}
+
+### Add a trainer with a temporary password (they must change it at sign-in, D-054)
+POST {{api}}/hq/staff
+Authorization: Bearer {{login.response.body.data.access_token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "username": "trainer.new", "name": "New Trainer", "password": "Temp1234", "assignments": [{ "branch_oid": "{{gulshan}}", "role": "TRAINER" }] }
+
+### My sessions (`current` is this one)
+GET {{api}}/auth/sessions
+Authorization: Bearer {{login.response.body.data.access_token}}
+
+### Phase 2: a member at Gulshan (phone as 017…, stored as +880…)
+# @name member
+POST {{api}}/members
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "name": "Rahim Uddin", "phone": "01712345678", "gender": "Male", "health_flags": [], "health_declared": true }
+
+###
+@member = {{member.response.body.data.oid}}
+@code = {{member.response.body.data.code}}
+
+### The plans Gulshan sells
+# @name plans
+GET {{api}}/plans
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Quote, then sell with a part payment (the rest becomes dues)
+POST {{api}}/subscriptions/quote
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "member_oid": "{{member}}", "plan_oid": "{{plans.response.body.data[0].oid}}", "charge_admission": true }
+
+###
+# @name sale
+POST {{api}}/subscriptions
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "member_oid": "{{member}}", "plan_oid": "{{plans.response.body.data[0].oid}}", "charge_admission": true, "payment": { "method": "bkash", "amount": 2000, "reference": "TX-1" } }
+
+### Pay the dues
+POST {{api}}/payments
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "invoice_oid": "{{sale.response.body.data.invoice.oid}}", "method": "cash", "amount": 500 }
+
+### Scan at the door: the decision, then the check-in
+POST {{api}}/attendance/evaluate
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "code": "{{code}}" }
+
+###
+POST {{api}}/attendance/check-in
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "code": "{{code}}" }
+
+### Today at the desk, and the dashboard
+GET {{api}}/cash-closing/today
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/dashboard
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### The exit check (HQ): does the money reconcile over the pilot's two weeks?
+GET {{api}}/hq/reconciliation?from=2026-11-06&to=2026-11-19
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Portal access for the member (temporary password; the username is the member code)
+POST {{api}}/members/{{member}}/portal-access
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "password": "Welcome123" }

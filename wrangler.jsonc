@@ -1,0 +1,33 @@
+// The API as a Cloudflare Worker: the hosted demo (D-024, Free plan only: D-026, D-075).
+//   npm run worker:dev        local workerd on http://localhost:8787 (needs `npm run worker:db` in another shell)
+//   npm run worker:check      bundle without deploying: prints the upload size
+// Plain vars only here; secrets (JWT_SECRET, S3_* keys for R2) go in `.dev.vars` locally and `wrangler secret put`
+// in Cloudflare. No cron triggers: the demo has no scheduled jobs (D-075).
+{
+    "$schema": "node_modules/wrangler/config-schema.json",
+    "name": "fitmanager-api",
+    "main": "src/worker.ts",
+    "compatibility_date": "2026-11-01",
+    "compatibility_flags": ["nodejs_compat"],
+    "observability": { "enabled": true },
+    // esbuild picks pino's browser build (no `pino.symbols`, which pino-http needs); use the Node build.
+    "alias": { "pino": "./node_modules/pino/pino.js" },
+    "vars": {
+        "NODE_ENV": "production",
+        "APP_ENV": "demo",
+        "LOG_LEVEL": "info"
+    },
+    "hyperdrive": [
+        {
+            "binding": "HYPERDRIVE",
+            // `fitmanager-db`: Neon fitmanager-db (Singapore, free plan), the demo database (D-075), role fitmanager_app,
+            // direct host (fitmanager-infra/cloudflare/hyperdrive.md).
+            "id": "8c63f2cdffa14c69ba4910d8ee3c8ae1",
+            // `wrangler dev`: PGlite served over TCP by `npm run worker:db` (the local PostgreSQL uses peer auth on a socket).
+            "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5433/postgres?sslmode=disable"
+        }
+    ],
+    // Rate limits (src/worker/rate-limit-counter.ts): SQLite-backed Durable Objects, included in the Free plan (D-026).
+    "durable_objects": { "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimitCounter" }] },
+    "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimitCounter"] }]
+}

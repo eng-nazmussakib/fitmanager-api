@@ -1,0 +1,5 @@
+# Copy to .dev.vars for `npm run worker:dev` (git-ignored). Never put real secrets in the example.
+# NODE_ENV is production in wrangler.jsonc, so the config rejects the shared dev secret: make your own with
+#   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+JWT_SECRET=
+LOGIN_RATE_LIMIT=100000

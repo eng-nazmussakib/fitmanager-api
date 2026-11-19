@@ -5,6 +5,8 @@ import { authenticate, currentUser, requireAbility, requireBranch } from '#src/a
 import type { AppDeps } from '#src/container.ts';
 import type { Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
+import { branchContext, withBranchTx } from '#src/db/tenancy.ts';
+import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { AppError, ok, parse } from '#src/lib/http.ts';
 
 /**
@@ -65,19 +67,24 @@ export function siteRouter(deps: AppDeps): Router {
     router.patch('/v1/hq/site-groups/:key', ...hq, requireAbility('update', 'Settings'), async (req, res) => {
         const { key } = parse(keyParams, req.params);
         const body = parse(updateSchema, req.body);
-        const [g] = await db.query<SiteGroup>(sql`select ${COLUMNS} from site_group g where g.key = ${key}`);
-        if (!g) throw new AppError(404, 'Unknown group');
-        if (body.section !== undefined && g.section === null) throw new AppError(400, `${g.name} has no section on the home page`);
-        if (body.page !== undefined && g.page === null) throw new AppError(400, `${g.name} has no page of its own`);
-        if (g.required && (body.section === false || body.page === false)) throw new AppError(409, `${g.name} is required and cannot be switched off`);
-        const [row] = await db.query<SiteGroup>(sql`
-            update site_group g set
-                section_enabled = coalesce(${body.section ?? null}::boolean, g.section_enabled),
-                page_enabled = coalesce(${body.page ?? null}::boolean, g.page_enabled),
-                updated_at = now(), updated_by = ${currentUser(req).oid}
-            where g.key = ${key}
-            returning ${COLUMNS}`);
-        if (!row) throw new AppError(404, 'Unknown group');
+        const ctx = branchContext(req); // the HQ row: site groups are HQ data (D-043)
+        const { g, row } = await withBranchTx(db, ctx, async tx => {
+            const [g] = await tx.query<SiteGroup>(sql`select ${COLUMNS} from site_group g where g.key = ${key} for update`);
+            if (!g) throw new AppError(404, 'Unknown group');
+            if (body.section !== undefined && g.section === null) throw new AppError(400, `${g.name} has no section on the home page`);
+            if (body.page !== undefined && g.page === null) throw new AppError(400, `${g.name} has no page of its own`);
+            if (g.required && (body.section === false || body.page === false)) throw new AppError(409, `${g.name} is required and cannot be switched off`);
+            const [row] = await tx.query<SiteGroup>(sql`
+                update site_group g set
+                    section_enabled = coalesce(${body.section ?? null}::boolean, g.section_enabled),
+                    page_enabled = coalesce(${body.page ?? null}::boolean, g.page_enabled),
+                    updated_at = now(), updated_by = ${currentUser(req).oid}
+                where g.key = ${key}
+                returning ${COLUMNS}`);
+            if (!row) throw new AppError(404, 'Unknown group');
+            await recordAudit(tx, ctx, { action: 'update', entity: 'site_group', entityKey: key, before: g, after: row });
+            return { g, row };
+        });
         await cache.del(CACHE_KEY);
         ok(res, row, `${g.name}: ${describe(row)}`);
     });
