@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { protectGuest } from '#src/auth/guest.ts';
 import { authenticate, requireAbility, requireBranch } from '#src/auth/middleware.ts';
 import type { AppDeps } from '#src/container.ts';
 import { ok, parse } from '#src/lib/http.ts';
@@ -34,6 +35,8 @@ export function staffRouter(deps: AppDeps): Router {
     const service = staffService(deps);
     const read = requireAbility('read', 'Staff');
     const write = requireAbility('manage', 'Staff');
+    // The demo's shared guest accounts cannot be changed by anyone (D-076).
+    const locked = protectGuest(deps, 'user');
 
     for (const level of ['hq', 'branch'] as const) {
         const base = `/v1/${level}/staff`;
@@ -62,31 +65,31 @@ export function staffRouter(deps: AppDeps): Router {
             ok(res, await service.get(scopeOf(req, onlyHere), oid));
         });
 
-        router.patch(`${base}/:oid`, write, async (req, res) => {
+        router.patch(`${base}/:oid`, write, locked, async (req, res) => {
             const { oid } = parse(oidParams, req.params);
             ok(res, await service.updateProfile(scopeOf(req, onlyHere), oid, parse(profileSchema, req.body)), 'Saved');
         });
 
-        router.post(`${base}/:oid/deactivate`, write, async (req, res) => {
+        router.post(`${base}/:oid/deactivate`, write, locked, async (req, res) => {
             const { oid } = parse(oidParams, req.params);
             const m = await service.setStatus(scopeOf(req, onlyHere), oid, 'Inactive');
             ok(res, m, `${m.name} is deactivated and signed out`);
         });
 
-        router.post(`${base}/:oid/activate`, write, async (req, res) => {
+        router.post(`${base}/:oid/activate`, write, locked, async (req, res) => {
             const { oid } = parse(oidParams, req.params);
             const m = await service.setStatus(scopeOf(req, onlyHere), oid, 'Active');
             ok(res, m, `${m.name} is active again`);
         });
 
-        router.post(`${base}/:oid/reset-password`, write, async (req, res) => {
+        router.post(`${base}/:oid/reset-password`, write, locked, async (req, res) => {
             const { oid } = parse(oidParams, req.params);
             const { password } = parse(resetPasswordSchema, req.body);
             await service.resetPassword(scopeOf(req, onlyHere), oid, password);
             ok(res, null, 'Temporary password set. They must change it when they sign in.');
         });
 
-        router.post(`${base}/:oid/sign-out`, write, async (req, res) => {
+        router.post(`${base}/:oid/sign-out`, write, locked, async (req, res) => {
             const { oid } = parse(oidParams, req.params);
             await service.signOutEverywhere(scopeOf(req, onlyHere), oid);
             ok(res, null, 'Signed out on every device');
@@ -98,7 +101,7 @@ export function staffRouter(deps: AppDeps): Router {
         ok(res, m, `${m.name} added`, 201);
     });
 
-    router.put('/v1/hq/staff/:oid/assignments', write, async (req, res) => {
+    router.put('/v1/hq/staff/:oid/assignments', write, locked, async (req, res) => {
         const { oid } = parse(oidParams, req.params);
         const body = parse(hqAssignmentsSchema, req.body);
         ok(res, await service.replaceAssignments(scopeOf(req, false), oid, body.assignments, body.all_branches), 'Assignments saved');
@@ -111,13 +114,13 @@ export function staffRouter(deps: AppDeps): Router {
         ok(res, m, `${m.name} added`, 201);
     });
 
-    router.put('/v1/branch/staff/:oid/role', write, async (req, res) => {
+    router.put('/v1/branch/staff/:oid/role', write, locked, async (req, res) => {
         const { oid } = parse(oidParams, req.params);
         const { role } = parse(branchRoleSchema, req.body);
         ok(res, await service.setRoleHere(scopeOf(req, true), oid, role), 'Role saved');
     });
 
-    router.delete('/v1/branch/staff/:oid', write, async (req, res) => {
+    router.delete('/v1/branch/staff/:oid', write, locked, async (req, res) => {
         const { oid } = parse(oidParams, req.params);
         const m = await service.setRoleHere(scopeOf(req, true), oid, null);
         ok(res, m, `${m.name} no longer works at this branch`);

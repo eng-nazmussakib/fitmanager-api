@@ -54,6 +54,7 @@ const AUDITED: Record<string, string> = {
 
 const EXEMPT: Record<string, string> = {
     'POST /v1/auth/login': 'session start; the session itself is the refresh_token row (user, time, user agent)',
+    'POST /v1/auth/guest': 'guest session start (D-076), like sign-in: the refresh_token row records user, time and user agent',
     'POST /v1/auth/refresh': 'token rotation inside an existing session (refresh_token rows)',
     'POST /v1/auth/logout': 'session end (refresh_token revoked_at)',
     'POST /v1/auth/change-password': "the user's own password (no branch context; app_user.updated_at, sessions revoked)",

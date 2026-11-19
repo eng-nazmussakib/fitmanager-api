@@ -72,6 +72,11 @@ const fields = v.object({
     ),
     PASSWORD_SCRYPT_R: v.optional(int(1, 32), '8'),
     PASSWORD_SCRYPT_P: v.optional(int(1, 16), '1'),
+    /**
+     * Guest access on the hosted demo (D-076): comma-separated usernames of seeded accounts anyone may sign in as
+     * without a password (`POST /v1/auth/guest`). These accounts cannot be changed by anyone. Empty: no guest access.
+     */
+    GUEST_ACCOUNTS: v.optional(csv, ''),
 
     /** Where member photos and documents live (D-058, D-069): `local` disk (development, tests) or R2 over its S3 API. */
     FILE_STORE: v.optional(v.picklist(['local', 's3']), 'local'),
@@ -133,7 +138,9 @@ function toConfig(v: Fields) {
             refreshTtl: v.REFRESH_TOKEN_TTL,
             refreshReuseGrace: v.REFRESH_REUSE_GRACE,
             loginRateLimit: v.LOGIN_RATE_LIMIT,
-            passwordHash: { N: v.PASSWORD_SCRYPT_N, r: v.PASSWORD_SCRYPT_R, p: v.PASSWORD_SCRYPT_P }
+            passwordHash: { N: v.PASSWORD_SCRYPT_N, r: v.PASSWORD_SCRYPT_R, p: v.PASSWORD_SCRYPT_P },
+            /** Lower-cased, in the order given (the order the guest picker shows them). */
+            guestAccounts: v.GUEST_ACCOUNTS.map(u => u.toLowerCase())
         },
         files: {
             store: v.FILE_STORE,

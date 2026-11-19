@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import * as v from 'valibot';
 
+import { protectGuest } from '#src/auth/guest.ts';
 import { authenticate, currentUser, requireAbility, requireBranch } from '#src/auth/middleware.ts';
 import { newPasswordSchema } from '#src/auth/password-policy.ts';
 import type { AppDeps } from '#src/container.ts';
@@ -26,12 +27,19 @@ export function portalRouter(deps: AppDeps): Router {
     const now = () => dhakaNow(deps.clock());
     const member = [authenticate(deps), requireAbility('read', 'Portal')];
 
-    router.post('/v1/members/:oid/portal-access', authenticate(deps), requireBranch('BRANCH'), requireAbility('update', 'Member'), async (req, res) => {
-        const { oid } = parse(oidParams, req.params);
-        const { password } = parse(accessSchema, req.body);
-        const out = await grantPortalAccess(deps, branchContext(req), oid, now().date, password);
-        ok(res, out, out.reset ? 'Portal password reset: the member sets a new one at sign-in' : `Portal access given: username ${out.username}`);
-    });
+    router.post(
+        '/v1/members/:oid/portal-access',
+        authenticate(deps),
+        requireBranch('BRANCH'),
+        requireAbility('update', 'Member'),
+        protectGuest(deps, 'member'),
+        async (req, res) => {
+            const { oid } = parse(oidParams, req.params);
+            const { password } = parse(accessSchema, req.body);
+            const out = await grantPortalAccess(deps, branchContext(req), oid, now().date, password);
+            ok(res, out, out.reset ? 'Portal password reset: the member sets a new one at sign-in' : `Portal access given: username ${out.username}`);
+        }
+    );
 
     router.get('/v1/me/summary', ...member, async (req, res) => {
         ok(res, await summary(p, currentUser(req), now()));

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { protectGuest } from '#src/auth/guest.ts';
 import { authenticate, requireAbility, requireBranch } from '#src/auth/middleware.ts';
 import type { AppDeps } from '#src/container.ts';
 import { branchContext, withBranchTx } from '#src/db/tenancy.ts';
@@ -39,6 +40,8 @@ export function membersRouter(deps: AppDeps): Router {
     const memberDeps: MemberDeps = { db: deps.db, files: deps.files, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix };
     const branch = [authenticate(deps), requireBranch('BRANCH')];
     const today = () => dhakaNow(deps.clock()).date;
+    // The guest member's portal account must keep working for the next visitor (D-076).
+    const guestMember = protectGuest(deps, 'member');
 
     router.get('/v1/members', ...branch, requireAbility('read', 'Member'), async (req, res) => {
         const q = parse(listQuery, req.query);
@@ -78,14 +81,14 @@ export function membersRouter(deps: AppDeps): Router {
         ok(res, await setSuspension(memberDeps, branchContext(req), oid, today(), null), 'Suspension lifted');
     });
 
-    router.post('/v1/members/:oid/transfer', ...branch, requireAbility('manage', 'Member'), async (req, res) => {
+    router.post('/v1/members/:oid/transfer', ...branch, requireAbility('manage', 'Member'), guestMember, async (req, res) => {
         const { oid } = parse(oidParams, req.params);
         const body = parse(transferSchema, req.body);
         const moved = await transferMember(memberDeps, branchContext(req), oid, today(), body.to_branch_oid, body.reason);
         ok(res, moved, `${moved.code} moved to ${moved.branch_name}`);
     });
 
-    router.post('/v1/members/:oid/anonymise', ...branch, requireAbility('manage', 'Member'), async (req, res) => {
+    router.post('/v1/members/:oid/anonymise', ...branch, requireAbility('manage', 'Member'), guestMember, async (req, res) => {
         const { oid } = parse(oidParams, req.params);
         const { confirm_code } = parse(anonymiseSchema, req.body);
         ok(res, await anonymiseMember(memberDeps, branchContext(req), oid, today(), confirm_code), 'Personal data removed');

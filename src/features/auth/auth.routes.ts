@@ -4,6 +4,7 @@ import * as v from 'valibot';
 
 import { GLOBAL_RULES } from '#src/auth/ability.ts';
 import { refreshTokens, type SessionMeta, users } from '#src/auth/auth.repo.ts';
+import { GUEST_LOCKED, guestAccounts, isGuest } from '#src/auth/guest.ts';
 import { authenticate, currentUser, forgetUser } from '#src/auth/middleware.ts';
 import { hashPassword, needsRehash, verifyAgainstDummy, verifyPassword } from '#src/auth/password.ts';
 import { newPasswordSchema } from '#src/auth/password-policy.ts';
@@ -19,6 +20,7 @@ const loginSchema = v.object({
     username: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(100)),
     password: v.pipe(v.string(), v.minLength(1), v.maxLength(200))
 });
+const guestSchema = v.object({ username: v.pipe(v.string(), v.trim(), v.minLength(1), v.maxLength(100)) });
 const refreshSchema = v.object({ refresh_token: token });
 const logoutSchema = v.object({ refresh_token: v.optional(token) });
 const changePasswordSchema = v.pipe(
@@ -56,6 +58,8 @@ export function authRouter(deps: AppDeps): Router {
         }
     });
     const refreshLimiter = createLimiter({ name: 'refresh', windowMs: 60_000, limit: 60, stores: deps.rateLimits });
+    // Guest sign-ins per IP (D-076): each one makes a session row, so a script cannot fill the table.
+    const guestLimiter = createLimiter({ name: 'guest', windowMs: 15 * 60_000, limit: 30, stores: deps.rateLimits });
     // Guessing the current password through change-password: 10 tries per user per 15 minutes.
     const passwordLimiter = createLimiter({
         name: 'password',
@@ -95,6 +99,21 @@ export function authRouter(deps: AppDeps): Router {
         ok(res, await issue(user, req), 'Signed in');
     });
 
+    /** The demo's guest accounts (D-076): empty when guest access is off. No passwords: see `POST` below. */
+    router.get('/v1/auth/guest', async (_req, res) => {
+        ok(res, await guestAccounts(db, config));
+    });
+
+    /** Signs in as one of the guest accounts without a password (D-076). */
+    router.post('/v1/auth/guest', guestLimiter, async (req, res) => {
+        const { username } = parse(guestSchema, req.body);
+        const user = isGuest(config, username) ? await users.findByUsernameForAuth(db, username) : undefined;
+        if (user?.status !== 'Active' || user.must_change_password) throw new AppError(404, 'There is no such guest account');
+        await refreshTokens.prune(db, user.oid);
+        log().info({ user: user.oid }, 'Signed in as a guest');
+        ok(res, await issue(user, req), 'Signed in');
+    });
+
     router.post('/v1/auth/refresh', refreshLimiter, async (req, res) => {
         const { refresh_token } = parse(refreshSchema, req.body);
         const result = await refreshTokens.rotate(db, refresh_token, meta(req), {
@@ -112,6 +131,8 @@ export function authRouter(deps: AppDeps): Router {
     router.post('/v1/auth/logout', requireUserBeforeChange, async (req, res) => {
         const { refresh_token } = parse(logoutSchema, req.body ?? {});
         const user = currentUser(req);
+        // A guest account is shared: "everywhere" would sign out every other visitor (D-076).
+        if (!refresh_token && isGuest(config, user.username)) throw new AppError(403, GUEST_LOCKED);
         if (refresh_token) await refreshTokens.revokeFamily(db, refresh_token, user.oid);
         else await refreshTokens.revokeAll(db, user.oid);
         ok(res, null, 'Signed out');
@@ -129,6 +150,7 @@ export function authRouter(deps: AppDeps): Router {
     router.post('/v1/auth/change-password', requireUserBeforeChange, passwordLimiter, async (req, res) => {
         const body = parse(changePasswordSchema, req.body);
         const user = currentUser(req);
+        if (isGuest(config, user.username)) throw new AppError(403, GUEST_LOCKED);
         const stored = await users.passwordHash(db, user.oid);
         if (!stored || !(await verifyPassword(body.current_password, stored)))
             throw new AppError(400, 'The current password is not correct', [{ path: 'current_password', message: 'Not correct' }]);
@@ -146,14 +168,17 @@ export function authRouter(deps: AppDeps): Router {
     router.get('/v1/auth/sessions', requireUser, async (req, res) => {
         const user = currentUser(req);
         const sid = req.auth?.sid ?? null;
+        // A guest sees only its own session, not the other visitors' devices (D-076).
+        const guest = isGuest(config, user.username);
         ok(
             res,
-            (await refreshTokens.sessions(db, user.oid)).map(s => ({ ...s, current: s.id === sid }))
+            (await refreshTokens.sessions(db, user.oid)).map(s => ({ ...s, current: s.id === sid })).filter(s => !guest || s.current)
         );
     });
 
     router.delete('/v1/auth/sessions/:id', requireUser, async (req, res) => {
         const { id } = parse(sessionParams, req.params);
+        if (isGuest(config, currentUser(req).username)) throw new AppError(403, GUEST_LOCKED);
         if (!(await refreshTokens.revokeSession(db, currentUser(req).oid, id))) throw new AppError(404, 'No such session');
         ok(res, null, 'Session signed out');
     });
@@ -175,6 +200,7 @@ export function authRouter(deps: AppDeps): Router {
             assignments: u.assignments,
             all_branches: u.all_branches,
             must_change_password: u.must_change_password,
+            guest: isGuest(config, u.username),
             member: member ? { oid: member.oid, code: member.code, branch: member.branch } : null
         });
     });
