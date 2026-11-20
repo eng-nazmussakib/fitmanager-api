@@ -32,8 +32,37 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         maxBytes: 5 * 1024 * 1024,
         perMember: 10,
         label: 'A document is a PDF, JPEG or PNG of at most 5 MB'
+    },
+    trainer_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 2 * 1024 * 1024,
+        perMember: 0,
+        label: 'A photo is a JPEG, PNG or WebP of at most 2 MB'
+    },
+    // Small, on purpose (D-085): resized in the browser to 800 px.
+    exercise_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'An exercise photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    // At most 10 seconds, checked in the browser (D-085).
+    exercise_video: {
+        types: ['video/mp4', 'video/webm'],
+        maxBytes: 8 * 1024 * 1024,
+        perMember: 0,
+        label: 'An exercise video is an MP4 or WebM of at most 8 MB'
+    },
+    measurement_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'A progress photo is a JPEG, PNG or WebP of at most 300 KB'
     }
 };
+
+/** The largest file of any kind: the local store's upload route refuses more. */
+const MAX_FILE_BYTES = Math.max(...Object.values(FILE_RULES).map(r => r.maxBytes));
 
 /** Bytes file-type needs to recognise every allowed type. */
 const SNIFF_BYTES = 4100;
@@ -140,16 +169,21 @@ export async function receiveLocalUpload(deps: FileDeps, oid: string, token: str
     } catch {
         throw new AppError(403, 'This upload link is not valid or has expired');
     }
-    if (body.byteLength > FILE_RULES.member_document.maxBytes) throw new AppError(413, 'The file is too large');
+    if (body.byteLength > MAX_FILE_BYTES) throw new AppError(413, 'The file is too large');
     await deps.files.write(key, body, contentType);
 }
 
 type Completion = { ok: true; file: FileRow } | { ok: false; status: 409 | 413 | 415; message: string };
 
-export async function completeUpload(deps: FileDeps, ctx: BranchContext, oid: string): Promise<FileRow> {
+/** The caller's permission for a kind of file (files.routes.ts): checked once the row says which kind it is. */
+export type KindCheck = (kind: FileKind, file: FileRow) => boolean;
+const anyKind: KindCheck = () => true;
+
+export async function completeUpload(deps: FileDeps, ctx: BranchContext, oid: string, allowed: KindCheck = anyKind): Promise<FileRow> {
     const result = await withBranchTx(deps.db, ctx, async (tx): Promise<Completion> => {
         const row = await filesRepo.get(tx, oid, [ctx.branchOid], true);
         if (!row) throw new AppError(404, 'File not found');
+        if (!allowed(row.kind, row)) throw new AppError(403, 'You do not have permission to do this');
         const { storage_key: key, ...shown } = row;
         if (row.status === 'ready') return { ok: true, file: shown };
         if (row.status !== 'pending') throw new AppError(409, 'This upload was refused or deleted. Start again.');
@@ -210,19 +244,26 @@ export async function readByViewToken(deps: FileDeps, oid: string, token: string
 }
 
 /** A ready file of the branch, with its bytes (at most 5 MB, so read whole). */
-export async function readFileContent(deps: FileDeps, ctx: BranchContext, oid: string): Promise<{ file: FileRow; body: Uint8Array }> {
+export async function readFileContent(
+    deps: FileDeps,
+    ctx: BranchContext,
+    oid: string,
+    allowed: KindCheck = anyKind
+): Promise<{ file: FileRow; body: Uint8Array }> {
     const row = await withBranchTx(deps.db, ctx, tx => filesRepo.get(tx, oid, ctx.branchOids));
     if (row?.status !== 'ready') throw new AppError(404, 'File not found');
+    if (!allowed(row.kind, row)) throw new AppError(403, 'You do not have permission to do this');
     const body = await deps.files.read(row.storage_key);
     if (!body) throw new AppError(404, 'File not found');
     const { storage_key: _key, ...file } = row;
     return { file, body };
 }
 
-export async function deleteFile(deps: FileDeps, ctx: BranchContext, oid: string): Promise<void> {
+export async function deleteFile(deps: FileDeps, ctx: BranchContext, oid: string, allowed: KindCheck = anyKind): Promise<void> {
     const key = await withBranchTx(deps.db, ctx, async tx => {
         const row = await filesRepo.get(tx, oid, [ctx.branchOid], true);
         if (!row || row.status === 'deleted') throw new AppError(404, 'File not found');
+        if (!allowed(row.kind, row)) throw new AppError(403, 'You do not have permission to do this');
         await filesRepo.setStatus(tx, oid, 'deleted', { actor: ctx.actor?.oid });
         const { storage_key: storageKeyOf, ...before } = row;
         await recordAudit(tx, ctx, { action: 'delete', entity: 'file', entityKey: oid, before, after: null });
@@ -244,6 +285,18 @@ export async function claimFile(tx: Queryable, branchOid: string, fileOid: strin
         ]);
     }
     if (row.member_oid === null) await filesRepo.setMember(tx, fileOid, memberOid);
+}
+
+/**
+ * For other features (trainers, exercises, measurements): check that a ready file of this kind belongs to the branch
+ * (`branchOid`) and is not someone else's, so a profile can point at it. Runs in the caller's transaction.
+ */
+export async function claimKindFile(tx: Queryable, branchOid: string, fileOid: string, kind: FileKind, memberOid: string | null = null): Promise<void> {
+    const row = await filesRepo.get(tx, fileOid, [branchOid], true);
+    if (row?.status !== 'ready' || row.kind !== kind || (row.member_oid !== null && row.member_oid !== memberOid)) {
+        throw new AppError(400, 'Upload the file first', [{ path: 'file_oid', message: 'Not an uploaded file' }]);
+    }
+    if (memberOid && row.member_oid === null) await filesRepo.setMember(tx, fileOid, memberOid);
 }
 
 /** A member's ready documents, each with a view link (the caller has checked the member is theirs to see). */

@@ -9,6 +9,7 @@ import { systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { createMemoryStore } from '#src/lib/file-store.ts';
 import { createLocalStore } from '#src/lib/file-store-local.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
+import { acrossBranches } from '#src/testing/rls.ts';
 import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
 
 const { GUL, DHA } = DEMO_BRANCHES;
@@ -265,7 +266,8 @@ describe('files: guest uploads expire after 7 days (D-077)', () => {
     });
     afterAll(() => g.close());
 
-    const keyOf = async (oid: string) => (await g.ownerDb.query<{ storage_key: string }>(sql`select storage_key from file where oid = ${oid}`))[0]!.storage_key;
+    const keyOf = async (oid: string) =>
+        (await acrossBranches(g.ownerDb, tx => tx.query<{ storage_key: string }>(sql`select storage_key from file where oid = ${oid}`)))[0]!.storage_key;
     async function photo(headers: Record<string, string>) {
         const start = await request(g.app)
             .post('/api/v1/files')
@@ -298,7 +300,9 @@ describe('files: guest uploads expire after 7 days (D-077)', () => {
         expect(member.photo_url).not.toBeNull();
 
         // Eight days on (the bucket's rule has deleted the object): the file and the photo read as gone.
-        await g.ownerDb.query(sql`update file set created_at = created_at - interval '8 days' where oid in (${guestPhoto}, ${staffPhoto})`);
+        await acrossBranches(g.ownerDb, tx =>
+            tx.query(sql`update file set created_at = created_at - interval '8 days' where oid in (${guestPhoto}, ${staffPhoto})`)
+        );
         await request(g.app).get(`/api/v1/files/${guestPhoto}`).set(manager).expect(404);
         const later = (await request(g.app).get(`/api/v1/members/${member.oid}`).set(manager).expect(200)).body.data as { photo_url: string | null };
         expect(later.photo_url).toBeNull();

@@ -53,7 +53,10 @@ describe('session', () => {
             ['DHA', 'dhanmondi', 'FRONT_DESK'],
             ['UTT', 'uttara', 'FRONT_DESK']
         ]);
-        expect(assignments[0]!.rules).toContainEqual({ action: ['read', 'create', 'update'], subject: ['Member', 'Attendance'] });
+        expect(assignments[0]!.rules).toContainEqual({
+            action: ['read', 'create', 'update'],
+            subject: ['Member', 'Attendance', 'Booking', 'Locker', 'PtSession', 'Measurement']
+        });
     });
 
     it('the owner reaches every branch through the HQ assignment, including one opened later', async () => {

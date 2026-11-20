@@ -23,6 +23,10 @@ export interface Plan {
     featured: boolean;
     /** From the template (D-063). */
     freezable: boolean;
+    /** A membership, or a package of PT sessions (D-079). */
+    kind: 'membership' | 'pt';
+    /** PT sessions in the package; null for a membership. */
+    sessions: number | null;
     /** The plan's own switch. */
     active: boolean;
     /** The template's switch: the desk sells a plan only when both are on (`sellable`). */
@@ -42,6 +46,8 @@ export interface PlanTemplate {
     features: string[];
     featured: boolean;
     freezable: boolean;
+    kind: 'membership' | 'pt';
+    sessions: number | null;
     sort_order: number;
     active: boolean;
     /** Branches with an active plan from this template. */
@@ -61,11 +67,11 @@ export interface Promo {
 
 const PLAN = sql.raw(`p.oid, p.branch_oid, p.template_oid, p.code, t.tier_name || ' · ' || t.period_label as name, t.tier, t.tier_name,
     t.period, t.period_label, t.months, p.price::float8 as price, p.admission_fee::float8 as admission_fee, t.persons, t.features,
-    t.featured, t.freezable, p.active, t.active as template_active, (p.active and t.active) as sellable
+    t.featured, t.freezable, t.kind, t.sessions, p.active, t.active as template_active, (p.active and t.active) as sellable
     from plan p join plan_template t on t.oid = p.template_oid`);
 const ORDER = sql.raw('order by t.sort_order, t.months, t.tier');
 const TEMPLATE = sql.raw(`t.oid, t.tier, t.tier_name, t.period, t.period_label, t.months, t.base_price::float8 as base_price, t.persons,
-    t.features, t.featured, t.freezable, t.sort_order, t.active,
+    t.features, t.featured, t.freezable, t.kind, t.sessions, t.sort_order, t.active,
     (select count(*)::int from plan p where p.template_oid = t.oid and p.active) as branches_using
     from plan_template t`);
 const PROMO = sql.raw(`r.code, r.label, r.percent::float8 as percent, r.amount::float8 as amount, r.waive_admission,
@@ -117,9 +123,10 @@ export const plansRepo = {
 
     async createTemplate(db: Queryable, hqOid: string, t: TemplateCreate, by: string): Promise<string> {
         const [row] = await db.query<{ oid: string }>(sql`
-            insert into plan_template (branch_oid, tier, tier_name, period, period_label, months, base_price, persons, features, featured, freezable, sort_order, updated_by)
+            insert into plan_template (branch_oid, tier, tier_name, period, period_label, months, base_price, persons, features, featured, freezable,
+                sort_order, kind, sessions, updated_by)
             values (${hqOid}, ${t.tier}, ${t.tier_name}, ${t.period}, ${t.period_label}, ${t.months}, ${t.base_price}, ${t.persons},
-                ${array(t.features)}, ${t.featured}, ${t.freezable}, ${t.sort_order}, ${by})
+                ${array(t.features)}, ${t.featured}, ${t.kind === 'pt' ? false : t.freezable}, ${t.sort_order}, ${t.kind}, ${t.kind === 'pt' ? t.sessions : null}, ${by})
             returning oid`);
         if (!row) throw new Error('insert returned no row');
         return row.oid;

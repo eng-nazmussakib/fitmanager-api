@@ -4,6 +4,7 @@ import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { livePhotoExpr } from '#src/features/files/files.repo.ts';
 import { viewUrl } from '#src/features/files/files.service.ts';
+import { markArrival } from '#src/features/scheduling/classes.service.ts';
 import { addDays, daysBetween, dhakaInstant, type DhakaNow, dhakaNow } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
@@ -106,7 +107,7 @@ async function decide(deps: AttendanceDeps, tx: Queryable, ctx: BranchContext, n
     // The plan name is the home branch's business; a visited branch reads only the outcome (D-059, D-066).
     const plan = home
         ? await tx.query<{ plan_name: string }>(
-              sql`select plan_name from subscription where member_oid = ${f.oid} and end_date = ${relevant?.end_date ?? null}::date limit 1`
+              sql`select plan_name from subscription where member_oid = ${f.oid} and kind = 'membership' and end_date = ${relevant?.end_date ?? null}::date limit 1`
           )
         : [];
     return {
@@ -261,7 +262,10 @@ export async function checkIn(
             before: null,
             after: { oid, at: now.at.toISOString(), override: override?.reason ?? null, failures: decision.failures.map(x => x.rule) }
         });
-        return { visit: await toWire(deps, row), message: override ? `${f.name} checked in with an override` : `${f.name} checked in` };
+        // A booked class starting soon (or under way) at the member's home branch is marked Attended (D-081).
+        const classes = f.branch_oid === ctx.branchOid ? await markArrival(tx, ctx, f.oid, now.at) : [];
+        const base = override ? `${f.name} checked in with an override` : `${f.name} checked in`;
+        return { visit: await toWire(deps, row), message: classes.length ? `${base}; marked present for ${classes.join(', ')}` : base };
     });
 }
 

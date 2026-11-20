@@ -5,6 +5,8 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import { pinoHttp } from 'pino-http';
 
+import { trainingRouter } from '#src/features/training/training.routes.ts';
+
 import type { AppDeps } from './container.ts';
 import { attendanceRouter } from './features/attendance/attendance.routes.ts';
 import { auditRouter } from './features/audit/audit.routes.ts';
@@ -20,6 +22,7 @@ import { plansRouter } from './features/plans/plans.routes.ts';
 import { portalRouter } from './features/portal/portal.routes.ts';
 import { reconciliationRouter } from './features/reconciliation/reconciliation.routes.ts';
 import { salesRouter } from './features/sales/sales.routes.ts';
+import { schedulingRouter } from './features/scheduling/scheduling.routes.ts';
 import { settingsRouter } from './features/settings/settings.routes.ts';
 import { siteRouter } from './features/site/site.routes.ts';
 import { staffRouter } from './features/staff/staff.routes.ts';
@@ -87,6 +90,8 @@ export function createApp(deps: AppDeps): Express {
     api.use(salesRouter(deps));
     api.use(attendanceRouter(deps));
     api.use(portalRouter(deps));
+    api.use(schedulingRouter(deps));
+    api.use(trainingRouter(deps));
     api.use(joinRouter(deps));
     api.use(dashboardRouter(deps));
     api.use(reconciliationRouter(deps));

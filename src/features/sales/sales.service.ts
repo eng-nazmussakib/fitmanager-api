@@ -68,6 +68,10 @@ export function subscriptionWire(s: SubscriptionRow, today: string) {
         end_date: s.end_date,
         status: subscriptionStatus(s, today),
         freezable: s.freezable,
+        kind: s.kind,
+        sessions: s.sessions,
+        sessions_used: s.sessions_used,
+        sessions_left: s.sessions === null ? null : Math.max(0, s.sessions - s.sessions_used),
         total: s.total,
         paid: s.paid,
         due: s.due,
@@ -144,7 +148,7 @@ function checkPayment(pay: PaymentInput, max: number, min = 0): void {
 
 /** Admission is due for a new member, and for one whose last plan ended more than 30 days before this start. */
 function admissionDue(subs: SubscriptionRow[], start: string): boolean {
-    const last = subs.filter(s => s.start_date <= s.end_date).at(-1);
+    const last = subs.filter(s => s.kind === 'membership' && s.start_date <= s.end_date).at(-1);
     return !last || daysBetween(last.end_date, start) > ADMISSION_GAP_DAYS;
 }
 
@@ -197,8 +201,8 @@ async function newInvoice(
     member: { oid: string; code: string; name: string; phone: string | null },
     q: Quote,
     vatBin: string | null,
-    subscriptionOid: string,
-    kind: 'sale' | 'upgrade'
+    subscriptionOid: string | null,
+    kind: 'sale' | 'upgrade' | 'locker'
 ) {
     const [branch] = await tx.query<{ code: string }>(sql`select code from branch where oid = ${ctx.branchOid}`);
     const year = now.date.slice(0, 4);
@@ -261,7 +265,12 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
         if (q.promo_error) throw new AppError(400, q.promo_error, [{ path: 'discount.code', message: q.promo_error }]);
         checkPayment(payment, q.total);
         const end = endDate(start, plan.months);
-        const overlapping = subs.find(s => s.start_date <= s.end_date && s.end_date >= start && s.start_date <= end);
+        // Memberships may not overlap; PT packages run next to them (D-079), and only with a membership.
+        const memberships = subs.filter(s => s.kind === 'membership' && !s.cancelled_at);
+        if (plan.kind === 'pt' && !memberships.some(s => s.start_date <= s.end_date && s.end_date >= start))
+            throw new AppError(409, 'A PT package goes with a membership. Sell the membership first.');
+        const overlapping =
+            plan.kind === 'membership' ? memberships.find(s => s.start_date <= s.end_date && s.end_date >= start && s.start_date <= end) : undefined;
         if (overlapping)
             throw new AppError(409, `This overlaps the ${overlapping.plan_name} plan that runs until ${shortDate(overlapping.end_date)}. Start the day after.`);
         const [rules] = await tx.query<{ vat_bin: string | null }>(sql`select vat_bin from org_settings`);
@@ -274,7 +283,9 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
                 plan_oid: plan.oid,
                 plan_name: plan.name,
                 months: plan.months,
-                freezable: plan.freezable,
+                freezable: plan.kind === 'membership' && plan.freezable,
+                kind: plan.kind,
+                sessions: plan.sessions,
                 start_date: start,
                 end_date: end,
                 invoice_oid: null,
@@ -317,6 +328,62 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
         if (paymentOid) await receipt(tx, ctx, member, invoiceOid, paymentOid, payment.amount, invoice.number);
         return { subscription: subscriptionWire(sub, now.date), invoice };
     });
+}
+
+/**
+ * For other features (locker rentals, D-082): charge a home-branch member for one item on its own invoice of `kind`,
+ * VAT applied as for plans, and take a first payment (0 = all of it left as dues). Runs in the caller's transaction.
+ */
+export async function chargeItem(
+    tx: Queryable,
+    ctx: BranchContext,
+    now: DhakaNow,
+    memberOid: string,
+    item: { label: string; amount: number; months: number; kind: 'locker' },
+    payment: PaymentInput
+) {
+    const actor = actorOf(ctx);
+    const member = await memberAt(tx, ctx, memberOid, now.date);
+    if (member.anonymised) throw new AppError(409, 'This member was anonymised');
+    const rules = await readOrgRules(tx);
+    const q = quote({
+        plan_name: item.label,
+        price: item.amount,
+        months: item.months,
+        admission_fee: 0,
+        charge_admission: false,
+        discount: { kind: 'none', value: 0 },
+        start_date: now.date,
+        today: now.date,
+        vat_rate: rules.vat_rate,
+        vat_inclusive: rules.vat_inclusive,
+        promos: []
+    });
+    checkPayment(payment, q.total);
+    const invoiceOid = await newInvoice(tx, ctx, now, member, { ...q, lines: [{ label: item.label, amount: item.amount }] }, rules.vat_bin, null, item.kind);
+    if (payment.amount > 0) {
+        const paymentOid = await salesRepo.insertPayment(
+            tx,
+            {
+                branch_oid: ctx.branchOid,
+                invoice_oid: invoiceOid,
+                member_oid: member.oid,
+                kind: 'payment',
+                amount: payment.amount,
+                method: payment.method,
+                reference: payment.reference?.trim() ? payment.reference.trim() : null,
+                reason: null,
+                approved_by: null,
+                received_at: now.at
+            },
+            actor.oid
+        );
+        const inv = await invoiceOut(tx, invoiceOid, [ctx.branchOid]);
+        await receipt(tx, ctx, member, invoiceOid, paymentOid, payment.amount, inv.number);
+    }
+    const invoice = await invoiceOut(tx, invoiceOid, [ctx.branchOid]);
+    await recordAudit(tx, ctx, { action: 'create', entity: 'invoice', entityKey: `${member.code}/${invoice.number}`, before: null, after: invoice });
+    return { invoice, member };
 }
 
 /* ---------- freeze, upgrade, cancel (at the member's home branch) ---------- */
@@ -413,6 +480,7 @@ export async function upgradeSubscription(db: Db, ctx: BranchContext, now: Dhaka
         if (subscriptionStatus(sub, now.date) !== 'Active') throw new AppError(409, 'Only a running plan can be upgraded.');
         if (member.status === 'Suspended') throw new AppError(409, 'This member is suspended. A manager must lift the suspension first.');
         const plan = await sellablePlan(tx, ctx.branchOid, planOid);
+        if (sub.kind !== 'membership' || plan.kind !== 'membership') throw new AppError(409, 'Only a membership is upgraded, to another membership.');
         if (plan.oid === sub.plan_oid) throw new AppError(400, 'That is the plan the member already has.', [{ path: 'plan_oid', message: 'Same plan' }]);
         const old = await salesRepo.invoice(tx, sub.invoice_oid ?? '', [ctx.branchOid]);
         const oldPrice = old?.lines[0]?.amount ?? 0;
@@ -440,7 +508,7 @@ export async function upgradeSubscription(db: Db, ctx: BranchContext, now: Dhaka
         checkPayment(payment, q.total);
         const end = endDate(now.date, plan.months);
         const later = (await salesRepo.subscriptions(tx, sub.member_oid)).find(
-            s => s.oid !== sub.oid && s.start_date > now.date && s.start_date <= end && s.start_date <= s.end_date
+            s => s.oid !== sub.oid && s.kind === 'membership' && s.start_date > now.date && s.start_date <= end && s.start_date <= s.end_date
         );
         if (later) throw new AppError(409, `The new plan would overlap the next one (${later.plan_name}, from ${shortDate(later.start_date)}).`);
         const subOid = await salesRepo.insertSubscription(
@@ -453,6 +521,8 @@ export async function upgradeSubscription(db: Db, ctx: BranchContext, now: Dhaka
                 plan_name: plan.name,
                 months: plan.months,
                 freezable: plan.freezable,
+                kind: 'membership',
+                sessions: null,
                 start_date: now.date,
                 end_date: end,
                 invoice_oid: null,

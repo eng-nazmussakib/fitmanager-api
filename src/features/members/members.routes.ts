@@ -32,7 +32,7 @@ import { memberTimeline } from './members.timeline.ts';
  * - `POST /v1/members`, `PATCH /v1/members/:oid`
  * - `POST /v1/members/:oid/suspend` `{ reason }`, `/unsuspend`, `/transfer` `{ to_branch_oid, reason }`,
  *   `/anonymise` `{ confirm_code }`
- * - `GET /v1/members/:oid/timeline`, `/documents`, `/notifications`, `/measurements` (none yet: a later phase)
+ * - `GET /v1/members/:oid/timeline`, `/documents`, `/notifications` (measurements: training.routes.ts)
  * Subscriptions, invoices and attendance of a member are served by their own features.
  */
 export function membersRouter(deps: AppDeps): Router {
@@ -128,13 +128,6 @@ export function membersRouter(deps: AppDeps): Router {
                 return (await notificationsRepo.forMember(tx, oid, deps.clock())).map(n => ({ ...n, created_at: n.created_at.toISOString() }));
             })
         );
-    });
-
-    router.get('/v1/members/:oid/measurements', ...branch, requireAbility('read', 'Member'), async (req, res) => {
-        const { oid } = parse(oidParams, req.params);
-        const ctx = branchContext(req);
-        await withBranchTx(deps.db, ctx, tx => memberAt(tx, ctx, oid, today()));
-        ok(res, []);
     });
 
     return router;

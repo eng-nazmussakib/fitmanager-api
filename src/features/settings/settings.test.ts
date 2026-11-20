@@ -58,6 +58,12 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
         expect(await settings()).toMatchObject({ freeze_max_count: 3, freeze_min_days: 7 });
         for (const freeze_max_count of [-1, 13, 1.5]) await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ freeze_max_count }).expect(400);
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ freeze_max_count: 2 }).expect(200);
+        // The booking rules (D-081): whole numbers in range.
+        await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ booking_cancel_hours: 4, noshow_limit: 5 }).expect(200);
+        expect(await settings()).toMatchObject({ booking_cancel_hours: 4, noshow_limit: 5, booking_open_days: 7 });
+        for (const body of [{ booking_open_days: 0 }, { booking_cancel_hours: 73 }, { noshow_block_days: 1.5 }])
+            await request(t.app).patch('/api/v1/hq/settings').set(owner).send(body).expect(400);
+        await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ booking_cancel_hours: 2, noshow_limit: 3 }).expect(200);
     });
 
     it('changes only the fields sent; the rate is kept to basis points', async () => {
@@ -74,7 +80,13 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
             vat_inclusive: true,
             freeze_min_days: 7,
             freeze_max_days: 60,
-            freeze_max_count: 2
+            freeze_max_count: 2,
+            booking_open_days: 7,
+            booking_max_active: 4,
+            booking_cancel_hours: 2,
+            noshow_limit: 3,
+            noshow_window_days: 30,
+            noshow_block_days: 7
         });
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ vat_rate: 0.15, vat_bin: '', vat_inclusive: false }).expect(200);
         expect(await settings()).toMatchObject({ vat_rate: 0.15, vat_bin: null, vat_inclusive: false });
@@ -90,7 +102,20 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
 
     it('GET /v1/rules: any signed-in user reads VAT and the freeze rule, nothing else', async () => {
         const rules = (await request(t.app).get('/api/v1/rules').set(manager).expect(200)).body.data as Record<string, unknown>;
-        expect(rules).toEqual({ vat_rate: 0.15, vat_bin: null, vat_inclusive: false, freeze_min_days: 7, freeze_max_days: 60, freeze_max_count: 2 });
+        expect(rules).toEqual({
+            vat_rate: 0.15,
+            vat_bin: null,
+            vat_inclusive: false,
+            freeze_min_days: 7,
+            freeze_max_days: 60,
+            freeze_max_count: 2,
+            booking_open_days: 7,
+            booking_max_active: 4,
+            booking_cancel_hours: 2,
+            noshow_limit: 3,
+            noshow_window_days: 30,
+            noshow_block_days: 7
+        });
         await request(t.app).get('/api/v1/rules').expect(401);
     });
 

@@ -66,8 +66,11 @@ const templates = async () => (await request(t.app).get('/api/v1/hq/plan-templat
 describe('plans at the desk (D-044)', () => {
     it('a branch sells every template at its own price, as the mock', async () => {
         const plans = await deskPlans();
-        expect(plans).toHaveLength(12);
+        // 12 memberships and 3 PT packages (D-079).
+        expect(plans).toHaveLength(15);
         expect(plans.every(p => p.branch_oid === GUL.oid && p.sellable)).toBe(true);
+        expect(plans.filter(p => (p as Plan & { kind: string }).kind === 'pt').map(p => p.code)).toEqual(['GUL-PT-1', 'GUL-PT-8', 'GUL-PT-16']);
+        expect(plans.find(p => p.code === 'GUL-PT-8')).toMatchObject({ kind: 'pt', sessions: 8, months: 2, price: 10000, freezable: false });
         expect(plans.find(p => p.code === 'GUL-SIN-3M')).toMatchObject({ name: 'Single · 3 Months', price: 8500, admission_fee: 2500, freezable: true });
         const dha = await deskPlans(atBranch((await signIn(t.app, 'manager.dhanmondi', 'Manager@123')).access_token, DHA.oid));
         // 90 % of 8,500 = 7,650, rounded to ৳50.
@@ -87,7 +90,7 @@ describe('plans at the desk (D-044)', () => {
     it('RLS: one branch never reads another branch’s plans, even without the filter', async () => {
         const all = sql`select branch_oid from plan`;
         const rows = await rlsScoped(t.deps.db, systemContext(GUL.oid), ['plan', 'plan_template', 'branch'], tx => tx.query<{ branch_oid: string }>(all));
-        expect(rows.length).toBe(12);
+        expect(rows.length).toBe(15);
         expect(rows.every(r => r.branch_oid === GUL.oid)).toBe(true);
         const hq = await rlsScoped(t.deps.db, systemContext(HQ.oid), ['plan', 'plan_template', 'branch'], tx => tx.query(all));
         expect(hq).toEqual([]); // HQ data only: no branch in the context
@@ -102,9 +105,9 @@ describe('plans at the desk (D-044)', () => {
 
 describe('plans at HQ', () => {
     it('HQ lists every branch, or one', async () => {
-        expect((await request(t.app).get('/api/v1/hq/plans').set(owner).expect(200)).body.data).toHaveLength(36);
+        expect((await request(t.app).get('/api/v1/hq/plans').set(owner).expect(200)).body.data).toHaveLength(45);
         const utt = (await request(t.app).get(`/api/v1/hq/plans?branch_oid=${UTT.oid}`).set(owner).expect(200)).body.data as Plan[];
-        expect(utt).toHaveLength(12);
+        expect(utt).toHaveLength(15);
         expect(utt.every(p => p.branch_oid === UTT.oid)).toBe(true);
     });
 
@@ -130,7 +133,7 @@ describe('plans at HQ', () => {
         await request(t.app).post('/api/v1/hq/plans').set(hqAdmin).send({ branch_oid: GUL.oid, template_oid: tpl!.oid }).expect(404);
         // With every-branch access, the same role manages them (D-044).
         const wide = await hqAdminAt('plans.admin.all', { all_branches: true });
-        expect((await request(t.app).get('/api/v1/hq/plans').set(wide).expect(200)).body.data).toHaveLength(36);
+        expect((await request(t.app).get('/api/v1/hq/plans').set(wide).expect(200)).body.data).toHaveLength(45);
     });
 
     it('templates: a new one is sold nowhere until HQ adds it to a branch, at the base price by default', async () => {

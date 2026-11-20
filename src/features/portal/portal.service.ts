@@ -12,6 +12,7 @@ import { memberAt, toWire } from '#src/features/members/members.service.ts';
 import { notificationsRepo } from '#src/features/notifications/notifications.service.ts';
 import { salesRepo } from '#src/features/sales/sales.repo.ts';
 import { invoiceWire, subscriptionWire } from '#src/features/sales/sales.service.ts';
+import { nextBooking } from '#src/features/scheduling/classes.service.ts';
 import { addDays, daysBetween, dhakaInstant, type DhakaNow } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
@@ -60,7 +61,10 @@ export async function grantPortalAccess(deps: Deps, ctx: BranchContext, memberOi
 }
 
 /** The signed-in member's context: their home branch, from the account (an anonymised member gets nothing). */
-async function memberContext(deps: Deps, user: { oid: string; name: string; member_oid: string | null }): Promise<{ ctx: BranchContext; memberOid: string }> {
+export async function memberContext(
+    deps: Deps,
+    user: { oid: string; name: string; member_oid: string | null }
+): Promise<{ ctx: BranchContext; memberOid: string }> {
     if (!user.member_oid) throw new AppError(403, 'Members only');
     const memberOid = user.member_oid;
     const home = await deps.db.transaction(async tx => {
@@ -89,7 +93,8 @@ export async function summary(deps: PortalDeps, user: { oid: string; name: strin
     const { ctx, memberOid } = await memberContext(deps, user);
     return withBranchTx(deps.db, ctx, async tx => {
         const m = await memberAt(tx, ctx, memberOid, now.date);
-        const subs = await salesRepo.subscriptions(tx, memberOid);
+        // The membership only: a PT package is shown on the PT page (D-079).
+        const subs = (await salesRepo.subscriptions(tx, memberOid)).filter(s => s.kind === 'membership');
         const current = subs.find(s => s.oid === m.current_subscription_oid) ?? null;
         const relevant =
             current ?? subs.find(s => s.start_date > now.date && s.start_date <= s.end_date) ?? subs.filter(s => s.start_date <= s.end_date).at(-1) ?? null;
@@ -108,7 +113,7 @@ export async function summary(deps: PortalDeps, user: { oid: string; name: strin
             days_left: m.days_left,
             days_total: relevant ? daysBetween(relevant.start_date, relevant.end_date) + 1 : null,
             dues: m.dues,
-            next_booking: null,
+            next_booking: await nextBooking(tx, memberOid, now.at),
             streak_days: streak(days, now.date),
             visits_this_month: month?.n ?? 0
         };

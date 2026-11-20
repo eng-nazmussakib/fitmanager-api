@@ -4,6 +4,7 @@ import { authenticate, currentUser, requireAbility, requireBranch } from '#src/a
 import type { AppDeps } from '#src/container.ts';
 import { branchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
+import { publicTrainers } from '#src/features/scheduling/trainers.service.ts';
 import { AppError, ok, parse } from '#src/lib/http.ts';
 
 import { branchesRepo } from './branches.repo.ts';
@@ -33,8 +34,10 @@ export function branchesRouter(deps: AppDeps): Router {
         const { slug } = parse(slugParams, req.params);
         const branch = await branchesRepo.publicBySlug(db, slug);
         if (!branch) throw new AppError(404, 'Branch not found');
+        // Its public trainers (phase 3, D-078), as the web mock answers.
+        const trainers = await publicTrainers({ db, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix }, slug);
         res.set('Cache-Control', `public, max-age=${PUBLIC_CACHE_SECONDS}`);
-        ok(res, branch);
+        ok(res, { ...branch, trainers });
     });
 
     router.get('/v1/branches', signedIn, async (req, res) => {

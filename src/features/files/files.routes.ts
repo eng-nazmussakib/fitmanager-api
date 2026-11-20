@@ -1,14 +1,29 @@
-import express, { type Response, Router } from 'express';
+import express, { type Request, type Response, Router } from 'express';
 
+import type { Action, Subject } from '#src/auth/ability.ts';
 import { isGuest } from '#src/auth/guest.ts';
-import { authenticate, currentUser, requireAbility, requireBranch } from '#src/auth/middleware.ts';
+import { authenticate, currentUser, requireAnyBranch } from '#src/auth/middleware.ts';
 import type { AppDeps } from '#src/container.ts';
 import { branchContext } from '#src/db/tenancy.ts';
-import { ok, parse } from '#src/lib/http.ts';
+import { AppError, ok, parse } from '#src/lib/http.ts';
 
-import type { FileRow } from './files.repo.ts';
+import type { FileKind, FileRow } from './files.repo.ts';
 import { fileParams, startSchema, uploadQuery } from './files.schema.ts';
 import { completeUpload, deleteFile, type FileDeps, readByViewToken, readFileContent, receiveLocalUpload, startUpload } from './files.service.ts';
+
+/**
+ * Who may upload (and complete), read and delete each kind of file, and where: member files and trainer photos at a
+ * branch; exercise media at HQ (the HQ library) or a branch (its own exercises); measurement photos at the member's
+ * home branch (members upload their own through the portal, portal.routes.ts).
+ */
+const KIND_RULES: Record<FileKind, { write: [Action, Subject]; read: [Action, Subject]; remove: [Action, Subject]; hq: boolean }> = {
+    member_photo: { write: ['create', 'Member'], read: ['read', 'Member'], remove: ['update', 'Member'], hq: false },
+    member_document: { write: ['create', 'Member'], read: ['read', 'Member'], remove: ['update', 'Member'], hq: false },
+    trainer_photo: { write: ['update', 'Trainer'], read: ['read', 'Trainer'], remove: ['update', 'Trainer'], hq: false },
+    exercise_photo: { write: ['create', 'Exercise'], read: ['read', 'Exercise'], remove: ['update', 'Exercise'], hq: true },
+    exercise_video: { write: ['create', 'Exercise'], read: ['read', 'Exercise'], remove: ['update', 'Exercise'], hq: true },
+    measurement_photo: { write: ['create', 'Measurement'], read: ['read', 'Measurement'], remove: ['update', 'Measurement'], hq: false }
+};
 
 /**
  * Files (phase 2 step 2; D-058, D-069). Member photos and documents of the branch in `X-Branch-Id`:
@@ -29,10 +44,17 @@ export function filesRouter(deps: AppDeps): Router {
         apiPrefix: deps.config.apiPrefix,
         storageLimitBytes: deps.config.files.storageLimitBytes
     };
-    const branch = [authenticate(deps), requireBranch('BRANCH')];
+    const branch = [authenticate(deps), requireAnyBranch()];
+    /** The caller may do `op` with files of `kind` at the branch in `X-Branch-Id`. */
+    const may = (req: Request, op: 'write' | 'read' | 'remove') => (kind: FileKind) => {
+        const rule = KIND_RULES[kind];
+        if (req.auth?.assignment?.branch.kind === 'HQ' && !rule.hq) return false;
+        return req.auth?.ability.can(...rule[op]) ?? false;
+    };
 
-    router.post('/v1/files', ...branch, requireAbility('create', 'Member'), async (req, res) => {
+    router.post('/v1/files', ...branch, async (req, res) => {
         const body = parse(startSchema, req.body);
+        if (!may(req, 'write')(body.kind)) throw new AppError(403, 'You do not have permission to do this');
         // A guest's upload is kept 7 days only (D-077).
         ok(
             res,
@@ -42,7 +64,7 @@ export function filesRouter(deps: AppDeps): Router {
         );
     });
 
-    router.put('/v1/files/:oid/content', express.raw({ type: () => true, limit: '6mb' }), async (req, res) => {
+    router.put('/v1/files/:oid/content', express.raw({ type: () => true, limit: '9mb' }), async (req, res) => {
         const { oid } = parse(fileParams, req.params);
         const { token } = parse(uploadQuery, req.query);
         const body = Buffer.isBuffer(req.body) ? new Uint8Array(req.body) : new Uint8Array();
@@ -50,9 +72,9 @@ export function filesRouter(deps: AppDeps): Router {
         ok(res, null, 'Uploaded');
     });
 
-    router.post('/v1/files/:oid/complete', ...branch, requireAbility('create', 'Member'), async (req, res) => {
+    router.post('/v1/files/:oid/complete', ...branch, async (req, res) => {
         const { oid } = parse(fileParams, req.params);
-        ok(res, await completeUpload(fileDeps, branchContext(req), oid), 'File saved');
+        ok(res, await completeUpload(fileDeps, branchContext(req), oid, may(req, 'write')), 'File saved');
     });
 
     const send = (res: Response, file: FileRow, body: Uint8Array, maxAge: number) => {
@@ -69,9 +91,9 @@ export function filesRouter(deps: AppDeps): Router {
         res.end(Buffer.from(body));
     };
 
-    router.get('/v1/files/:oid', ...branch, requireAbility('read', 'Member'), async (req, res) => {
+    router.get('/v1/files/:oid', ...branch, async (req, res) => {
         const { oid } = parse(fileParams, req.params);
-        const { file, body } = await readFileContent(fileDeps, branchContext(req), oid);
+        const { file, body } = await readFileContent(fileDeps, branchContext(req), oid, may(req, 'read'));
         send(res, file, body, 300);
     });
 
@@ -83,9 +105,9 @@ export function filesRouter(deps: AppDeps): Router {
         send(res, file, body, 3000);
     });
 
-    router.delete('/v1/files/:oid', ...branch, requireAbility('update', 'Member'), async (req, res) => {
+    router.delete('/v1/files/:oid', ...branch, async (req, res) => {
         const { oid } = parse(fileParams, req.params);
-        await deleteFile(fileDeps, branchContext(req), oid);
+        await deleteFile(fileDeps, branchContext(req), oid, may(req, 'remove'));
         ok(res, null, 'File deleted');
     });
 

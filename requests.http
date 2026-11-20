@@ -200,3 +200,73 @@ X-Branch-Id: {{gulshan}}
 Content-Type: application/json
 
 { "password": "Welcome123" }
+
+### Phase 3: this week's timetable at Gulshan (sessions are made from the weekly rules when read)
+GET {{api}}/classes/schedule
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Book the member into a class (set @session from the timetable; a full class puts them on the waitlist)
+@session = 00000000-0000-0000-0000-000000000000
+POST {{api}}/classes/sessions/{{session}}/bookings
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "member_oid": "{{member}}" }
+
+### Trainers here, then one trainer's free PT hours on a day
+GET {{api}}/trainers
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+@trainer = 00000000-0000-0000-0000-000000000000
+GET {{api}}/pt/slots?trainer_oid={{trainer}}&date=2026-11-22
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Lockers with their rentals, and the maintenance blocks
+GET {{api}}/lockers
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/maintenance
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### The public timetable and trainers
+GET {{api}}/public/classes?branch=gulshan
+
+###
+GET {{api}}/public/trainers?branch=gulshan
+
+### Phase 4: the exercise library at Gulshan (HQ's and the branch's own)
+GET {{api}}/exercises?muscle=quads
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Routine templates, then assign one to the member (a copy of its own)
+GET {{api}}/routines
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+@template = 00000000-0000-0000-0000-000000000000
+POST {{api}}/members/{{member}}/routine
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "template_oid": "{{template}}" }
+
+### Records, charts and workouts a week, then the measurements
+GET {{api}}/members/{{member}}/progress
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/members/{{member}}/measurements
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}

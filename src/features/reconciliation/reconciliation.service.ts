@@ -8,7 +8,7 @@ import { addDays, dhakaInstant } from '#src/lib/clock.ts';
  * 1. every invoice's paid amount (payments minus refunds) is between 0 and its total;
  * 2. each cash closing's expected cash equals the cash the system has for that staff member and day
  *    (cash payments minus cash refunds they took), and what they counted is shown beside it;
- * 3. every money write has its audit row: an invoice (create / upgrade), each later payment (pay), each refund,
+ * 3. every money write has its audit row: an invoice (create / upgrade; a locker rental's invoice: invoice create), each later payment (pay), each refund,
  *    each cash closing.
  * Each check lists at most 100 offending rows; `ok` is true only when every check is clean.
  */
@@ -76,8 +76,9 @@ async function unaudited(tx: Queryable, branches: readonly string[], from: Date,
     return tx.query<{ branch_code: string; kind: string; ref: string; at: Date }>(sql`
         with inv as (
             select i.oid, i.branch_oid, i.number, i.member_code, i.issued_at,
-                   exists (select 1 from audit_log a where a.branch_oid = i.branch_oid and a.entity = 'subscription'
-                           and a.action in ('create', 'upgrade') and a.entity_key = i.member_code || '/' || i.number) as sold
+                   -- A plan's invoice is audited with its sale; a locker rental's (D-082) as the invoice itself.
+                   exists (select 1 from audit_log a where a.branch_oid = i.branch_oid and a.entity_key = i.member_code || '/' || i.number
+                           and ((a.entity = 'subscription' and a.action in ('create', 'upgrade')) or (a.entity = 'invoice' and a.action = 'create'))) as sold
             from invoice i where i.branch_oid = any (${branches}::uuid[])
         ),
         -- Payments and refunds that no 'pay' or 'refund' audit row names. The sale's audit row covers the one

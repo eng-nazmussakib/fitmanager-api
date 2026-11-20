@@ -13,19 +13,28 @@ export const oidParams = v.object({ oid: uuid('Unknown plan') });
 export const templateParams = v.object({ oid: uuid('Unknown plan template') });
 export const promoParams = v.object({ code: v.pipe(v.string(), v.toUpperCase(), v.regex(/^[A-Z0-9]{3,20}$/, 'Unknown promo code')) });
 
-export const templateCreate = v.strictObject({
-    tier: slugish,
-    tier_name: label(60),
-    period: slugish,
-    period_label: label(60),
-    months: v.pipe(v.number(), v.integer('Whole months'), v.minValue(1), v.maxValue(60)),
-    base_price: taka('base_price'),
-    persons: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(20)), 1),
-    features: v.optional(features, []),
-    featured: v.optional(v.boolean(), false),
-    freezable: v.optional(v.boolean(), true),
-    sort_order: v.optional(v.pipe(v.number(), v.integer()), 0)
-});
+export const templateCreate = v.pipe(
+    v.strictObject({
+        tier: slugish,
+        tier_name: label(60),
+        period: slugish,
+        period_label: label(60),
+        months: v.pipe(v.number(), v.integer('Whole months'), v.minValue(1), v.maxValue(60)),
+        base_price: taka('base_price'),
+        persons: v.optional(v.pipe(v.number(), v.integer(), v.minValue(1), v.maxValue(20)), 1),
+        features: v.optional(features, []),
+        featured: v.optional(v.boolean(), false),
+        freezable: v.optional(v.boolean(), true),
+        sort_order: v.optional(v.pipe(v.number(), v.integer()), 0),
+        /** A membership, or a PT package of `sessions` sessions valid for `months` (D-079). */
+        kind: v.optional(v.picklist(['membership', 'pt']), 'membership'),
+        sessions: v.optional(v.nullable(v.pipe(v.number(), v.integer('Whole sessions'), v.minValue(1), v.maxValue(100))))
+    }),
+    v.forward(
+        v.check(b => (b.kind === 'pt') === (b.sessions !== undefined && b.sessions !== null), 'A PT package has a number of sessions; a membership has none'),
+        ['sessions']
+    )
+);
 export type TemplateCreate = v.InferOutput<typeof templateCreate>;
 
 /** Tier and period identify the template and do not change; months may (sold memberships keep their end dates). */

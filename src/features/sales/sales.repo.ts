@@ -25,6 +25,10 @@ export interface SubscriptionRow {
     plan_name: string;
     months: number;
     freezable: boolean;
+    /** A membership, or a PT package (D-079). */
+    kind: 'membership' | 'pt';
+    /** PT sessions bought; null for a membership. */
+    sessions: number | null;
     start_date: string;
     end_date: string;
     freezes: Freeze[];
@@ -37,6 +41,8 @@ export interface SubscriptionRow {
     paid: number;
     /** invoice_due(): a refund never creates dues (D-067 a). */
     due: number;
+    /** PT sessions that used a credit of this package (0 for a membership). */
+    sessions_used: number;
 }
 
 export interface PaymentRow {
@@ -63,7 +69,7 @@ export interface InvoiceRow {
     member_oid: string;
     subscription_oid: string | null;
     number: string;
-    kind: 'sale' | 'upgrade';
+    kind: 'sale' | 'upgrade' | 'locker';
     member_code: string;
     member_name: string;
     member_phone: string | null;
@@ -81,13 +87,14 @@ export interface InvoiceRow {
     refunded: number;
 }
 
-const SUBSCRIPTION = sql.raw(`s.oid, s.branch_oid, s.home_branch_oid, s.member_oid, s.plan_oid, s.plan_name, s.months, s.freezable,
+const SUBSCRIPTION = sql.raw(`s.oid, s.branch_oid, s.home_branch_oid, s.member_oid, s.plan_oid, s.plan_name, s.months, s.freezable, s.kind, s.sessions,
     s.start_date::text as start_date, s.end_date::text as end_date, s.freezes, s.cancelled_at, s.cancel_reason, s.upgraded_to,
     s.invoice_oid, s.created_at,
     coalesce(i.total, 0)::float8 as total,
     coalesce((select sum(case when p.kind = 'payment' then p.amount else -p.amount end) from payment p where p.invoice_oid = s.invoice_oid), 0)::float8 as paid,
     coalesce((select invoice_due(i.total, coalesce(sum(p.amount) filter (where p.kind = 'payment'), 0), coalesce(sum(p.amount) filter (where p.kind = 'refund'), 0))
-        from payment p where p.invoice_oid = s.invoice_oid), 0)::float8 as due
+        from payment p where p.invoice_oid = s.invoice_oid), 0)::float8 as due,
+    (select count(*)::int from pt_session ps where ps.subscription_oid = s.oid and ps.charged) as sessions_used
     from subscription s left join invoice i on i.oid = s.invoice_oid`);
 
 const INVOICE = sql.raw(`i.oid, i.branch_oid, b.code as branch_code, b.slug as branch_slug, b.name as branch_name, i.member_oid, i.subscription_oid,
@@ -115,12 +122,13 @@ export const salesRepo = {
 
     insertSubscription: async (
         tx: Queryable,
-        s: Omit<SubscriptionRow, 'oid' | 'freezes' | 'cancelled_at' | 'cancel_reason' | 'upgraded_to' | 'total' | 'paid' | 'due'>,
+        s: Omit<SubscriptionRow, 'oid' | 'freezes' | 'cancelled_at' | 'cancel_reason' | 'upgraded_to' | 'total' | 'paid' | 'due' | 'sessions_used'>,
         actor: string
     ) => {
         const [row] = await tx.query<{ oid: string }>(sql`
-            insert into subscription (branch_oid, home_branch_oid, member_oid, plan_oid, plan_name, months, freezable, start_date, end_date, invoice_oid, created_at, created_by)
-            values (${s.branch_oid}, ${s.home_branch_oid}, ${s.member_oid}, ${s.plan_oid}, ${s.plan_name}, ${s.months}, ${s.freezable},
+            insert into subscription (branch_oid, home_branch_oid, member_oid, plan_oid, plan_name, months, freezable, kind, sessions, start_date, end_date,
+                invoice_oid, created_at, created_by)
+            values (${s.branch_oid}, ${s.home_branch_oid}, ${s.member_oid}, ${s.plan_oid}, ${s.plan_name}, ${s.months}, ${s.freezable}, ${s.kind}, ${s.sessions},
                 ${s.start_date}, ${s.end_date}, ${s.invoice_oid}, ${s.created_at}, ${actor})
             returning oid`);
         if (!row) throw new Error('subscription insert returned no row');

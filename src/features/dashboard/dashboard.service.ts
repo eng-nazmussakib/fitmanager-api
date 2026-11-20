@@ -131,11 +131,11 @@ export async function dashboard(db: Db, ctx: BranchContext, branchOids: readonly
         const retention = oids.length
             ? await tx.query<{ branch_oid: string; ended: number; renewed: number }>(sql`
                 select s.home_branch_oid as branch_oid, count(*)::int as ended,
-                    count(*) filter (where exists (select 1 from subscription n where n.member_oid = s.member_oid and n.start_date > s.start_date
+                    count(*) filter (where exists (select 1 from subscription n where n.member_oid = s.member_oid and n.kind = 'membership' and n.start_date > s.start_date
                         and n.start_date <= s.end_date + 14 and n.oid <> s.oid))::int as renewed
                 from subscription s
                 where s.home_branch_oid = any (${oids}::uuid[]) and s.end_date >= ${addDays(today, -90)}::date and s.end_date < ${addDays(today, -14)}::date
-                    and s.cancelled_at is null
+                    and s.cancelled_at is null and s.kind = 'membership'
                 group by 1`)
             : [];
         const comparison = branches.map(b => {

@@ -19,7 +19,7 @@ const accessSchema = v.strictObject({ password: newPasswordSchema });
  * - `POST /v1/members/:oid/portal-access` `{ password }`: the desk gives or resets portal access (`update Member`);
  *   the username is the member code, the password is temporary (changed at the first sign-in).
  * - `GET /v1/me/summary`, `/v1/me/payments`, `/v1/me/attendance`, `/v1/me/notifications` (`read Portal`).
- * Class booking, routines and measurements stay in the demo (D-070 c).
+ * Class booking is in scheduling.routes.ts (phase 3); routines, workouts and measurements in training.routes.ts (phase 4).
  */
 export function portalRouter(deps: AppDeps): Router {
     const router = Router();

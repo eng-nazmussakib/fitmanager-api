@@ -1,6 +1,8 @@
 import type { Db, Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
-import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
+import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy.ts';
+
+import { DEMO_BRANCHES } from './demo.ts';
 
 /**
  * Run the rest of the transaction as a role that RLS applies to. On the local PostgreSQL the app connects as
@@ -27,3 +29,18 @@ export const rlsScoped = <T>(db: Db, ctx: BranchContext, tables: readonly string
         await asRlsSubject(tx, tables);
         return fn(tx);
     });
+
+/**
+ * Test fixtures and checks read as the owner with EVERY demo branch in context: on a real server the owner role is
+ * bound by FORCE ROW LEVEL SECURITY too, so a bare `ownerDb.query` sees no branch rows there (PGlite, a superuser,
+ * sees them all, which hid this).
+ */
+export const acrossBranches = <T>(db: Db, fn: (tx: Queryable) => Promise<T>): Promise<T> =>
+    withBranchTx(
+        db,
+        systemContext(
+            DEMO_BRANCHES.HQ.oid,
+            Object.values(DEMO_BRANCHES).map(b => b.oid)
+        ),
+        fn
+    );

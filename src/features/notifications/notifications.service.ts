@@ -10,7 +10,7 @@ import { log } from '#src/lib/logger.ts';
  * `channel` records how the member could be reached by hand (`email`, `sms`) or `log` when they gave neither;
  * `status` is `logged`, or `skipped` when there is nobody to send it to.
  */
-export type NotificationKind = 'receipt' | 'expiry_7d' | 'expiry_1d' | 'welcome';
+export type NotificationKind = 'receipt' | 'expiry_7d' | 'expiry_1d' | 'welcome' | 'class_cancelled' | 'waitlist_promoted' | 'pt_booked' | 'pt_cancelled';
 
 export interface NotificationInput {
     branch_oid: string;
@@ -79,9 +79,9 @@ export async function writeDueReminders(tx: Queryable, memberOid: string, now: D
     }>(sql`
         select s.oid, s.home_branch_oid, s.plan_name, s.end_date::text as end_date, m.code, m.name, m.email, m.phone
         from subscription s join member m on m.oid = s.member_oid
-        where s.member_oid = ${memberOid} and s.end_date - 7 <= ${today}::date and s.end_date >= ${addDays(today, -400)}::date
+        where s.member_oid = ${memberOid} and s.kind = 'membership' and s.end_date - 7 <= ${today}::date and s.end_date >= ${addDays(today, -400)}::date
           and s.cancelled_at is null and m.anonymised_at is null and m.suspended_at is null
-          and not exists (select 1 from subscription n where n.member_oid = s.member_oid and n.start_date > s.end_date and n.cancelled_at is null)`);
+          and not exists (select 1 from subscription n where n.member_oid = s.member_oid and n.kind = 'membership' and n.start_date > s.end_date and n.cancelled_at is null)`);
     let written = 0;
     for (const s of subs) {
         for (const r of REMINDER_DAYS) {

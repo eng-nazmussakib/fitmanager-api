@@ -43,6 +43,11 @@ export interface MemberRow {
     last_visit: string | null;
     current_subscription_oid: string | null;
     frozen_until: string | null;
+    /** The assigned trainer (D-078), if any. */
+    trainer_oid: string | null;
+    trainer_name: string | null;
+    /** For the BMI (D-089), set with a measurement. */
+    height_cm: number | null;
 }
 
 /**
@@ -69,7 +74,9 @@ function memberState(today: string): Sql {
             coalesce(d.dues, 0)::float8 as dues,
             lv.last_visit,
             case when rel.is_current then rel.oid end as current_subscription_oid,
-            rel.frozen_until::text as frozen_until
+            rel.frozen_until::text as frozen_until,
+            m.trainer_oid, (select u.name from trainer t join app_user u on u.oid = t.user_oid where t.oid = m.trainer_oid) as trainer_name,
+            m.height_cm::float8 as height_cm
         from member m
         join branch b on b.oid = m.branch_oid
         left join lateral (
@@ -79,7 +86,7 @@ function memberState(today: string): Sql {
                 (select max((f ->> 'to')::date) from jsonb_array_elements(s.freezes) f
                     where (f ->> 'from')::date <= ${today}::date and ${today}::date <= (f ->> 'to')::date) as frozen_until
             from subscription s
-            where s.member_oid = m.oid and s.start_date <= s.end_date
+            where s.member_oid = m.oid and s.kind = 'membership' and s.start_date <= s.end_date
             order by (s.start_date <= ${today}::date and ${today}::date <= s.end_date) desc,
                 (s.start_date > ${today}::date) desc,
                 case when s.start_date > ${today}::date then s.start_date end asc,

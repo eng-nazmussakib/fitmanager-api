@@ -33,8 +33,7 @@ export async function toWire(deps: Pick<MemberDeps, 'jwtSecret' | 'apiPrefix'>, 
         branch: { oid: m.branch_oid, code: branch_code, slug: branch_slug, name: branch_name, kind: 'BRANCH' as const },
         suspended_reason,
         // The mock shows the suspension in the notes; keep both.
-        notes: suspended_reason ? `Suspended: ${suspended_reason}` : notes,
-        trainer_name: null
+        notes: suspended_reason ? `Suspended: ${suspended_reason}` : notes
     };
 }
 
@@ -219,6 +218,11 @@ export async function transferMember(deps: MemberDeps, ctx: BranchContext, oid: 
         await membersRepo.update(tx, oid, { branch_oid: toBranchOid }, actor);
         await tx.query(sql`update subscription set home_branch_oid = ${toBranchOid} where member_oid = ${oid}`);
         await memberFiles.move(tx, oid, toBranchOid);
+        // Training history goes with them (D-089); the running routine ends here, as its exercises may be this branch's.
+        await tx.query(sql`update routine set ended_on = greatest(${today}::date, started_on) where member_oid = ${oid} and ended_on is null`);
+        for (const table of ['routine', 'workout', 'workout_set', 'measurement'] as const) {
+            await tx.query(sql`update ${sql.raw(table)} set branch_oid = ${toBranchOid} where member_oid = ${oid}`);
+        }
         const change = { from: { oid: ctx.branchOid, name: before.branch_name }, to: { oid: toBranchOid, name: target.name }, reason };
         await recordAudit(tx, ctx, { action: 'transfer_out', entity: 'member', entityKey: before.code, before: { branch_oid: ctx.branchOid }, after: change });
         await recordAudit(
@@ -248,6 +252,11 @@ export async function anonymiseMember(deps: MemberDeps, ctx: BranchContext, oid:
         if (confirmCode !== locked.code)
             throw new AppError(400, `Type the member code ${locked.code} to confirm`, [{ path: 'confirm_code', message: 'Does not match' }]);
         const before = await memberAt(tx, ctx, oid, today);
+        // Training data is personal (D-089): deleted, not kept under the code. The photos go with the files below.
+        await tx.query(sql`delete from measurement where member_oid = ${oid}`);
+        await tx.query(sql`delete from workout where member_oid = ${oid}`);
+        await tx.query(sql`delete from routine where member_oid = ${oid}`);
+        await tx.query(sql`update member set height_cm = null where oid = ${oid}`);
         const storageKeys = await memberFiles.deleteAll(tx, oid, actor);
         await membersRepo.update(
             tx,

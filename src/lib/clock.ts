@@ -55,3 +55,8 @@ export function clock12(hhmm: string): string {
 }
 
 export const taka = (n: number): string => `৳${new Intl.NumberFormat('en-IN', { maximumFractionDigits: 0 }).format(n)}`;
+
+/** An instant as Dhaka wall time with its offset: `2026-11-20T18:00:00+06:00` (classes and PT sessions on the wire). */
+export function dhakaIso(at: Date): string {
+    return `${new Date(at.getTime() + DHAKA_OFFSET_MS).toISOString().slice(0, 19)}+06:00`;
+}

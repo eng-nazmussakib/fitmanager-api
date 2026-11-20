@@ -49,7 +49,8 @@ export function plansRouter(deps: AppDeps): Router {
             const all = first ? await withBranchTx(db, systemContext(first, oids), tx => plansRepo.plans(tx, oids, true)) : [];
             return branches.map(b => ({
                 branch: { oid: b.oid, code: b.code, slug: b.slug, name: b.name, kind: b.kind },
-                plans: all.filter(p => p.branch_oid === b.oid),
+                // The public price list shows memberships; PT packages are sold at the desk (D-079).
+                plans: all.filter(p => p.branch_oid === b.oid && p.kind === 'membership'),
                 vat_rate: rules.vat_rate,
                 vat_inclusive: rules.vat_inclusive
             }));

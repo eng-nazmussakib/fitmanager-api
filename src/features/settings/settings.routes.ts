@@ -14,6 +14,8 @@ import { AppError, ok, parse } from '#src/lib/http.ts';
  * - VAT (D-037, D-057): the rate, the BIN printed on invoices, and whether prices include VAT. Every quote and sale
  *   reads them at that moment and the invoice keeps a copy, so a change here never rewrites an issued invoice.
  * - Freeze rule (D-063): the shortest and longest freeze, in days. Which plans may freeze is per plan template.
+ * - Class booking (D-081): how far ahead a class opens, how many future bookings a member may hold, the free
+ *   cancellation window, and the no-show rule (so many no-shows or late cancels in so many days block booking).
  */
 export interface OrgRules {
     /** A fraction: 0.15 = 15 %. 0 = not VAT-registered. */
@@ -25,6 +27,12 @@ export interface OrgRules {
     freeze_max_days: number;
     /** Freezes allowed on one plan (D-067 e); 0 = none. */
     freeze_max_count: number;
+    booking_open_days: number;
+    booking_max_active: number;
+    booking_cancel_hours: number;
+    noshow_limit: number;
+    noshow_window_days: number;
+    noshow_block_days: number;
 }
 
 export interface OrgSettings extends OrgRules {
@@ -37,6 +45,9 @@ export const MAX_FREEZE_DAYS = 365;
 
 /** Highest rate accepted: a typo guard, well above Bangladesh's 15 % standard rate (same as the web model). */
 export const MAX_VAT_RATE = 0.5;
+
+const whole = (min: number, max: number) =>
+    v.pipe(v.number(), v.integer('A whole number'), v.minValue(min, `At least ${min}`), v.maxValue(max, `At most ${max}`));
 
 const updateSchema = v.pipe(
     v.strictObject({
@@ -66,12 +77,19 @@ const updateSchema = v.pipe(
         freeze_max_days: v.optional(
             v.pipe(v.number(), v.integer('Whole days'), v.minValue(1, 'At least 1 day'), v.maxValue(MAX_FREEZE_DAYS, 'At most 365 days'))
         ),
-        freeze_max_count: v.optional(v.pipe(v.number(), v.integer('A whole number'), v.minValue(0, 'At least 0'), v.maxValue(12, 'At most 12')))
+        freeze_max_count: v.optional(v.pipe(v.number(), v.integer('A whole number'), v.minValue(0, 'At least 0'), v.maxValue(12, 'At most 12'))),
+        booking_open_days: v.optional(whole(1, 60)),
+        booking_max_active: v.optional(whole(1, 50)),
+        booking_cancel_hours: v.optional(whole(0, 72)),
+        noshow_limit: v.optional(whole(1, 20)),
+        noshow_window_days: v.optional(whole(1, 365)),
+        noshow_block_days: v.optional(whole(1, 90))
     }),
     v.check(b => Object.keys(b).length > 0, 'Nothing to change')
 );
 
-const RULES = sql.raw('s.vat_rate::float8 as vat_rate, s.vat_bin, s.vat_inclusive, s.freeze_min_days, s.freeze_max_days, s.freeze_max_count');
+const RULES = sql.raw(`s.vat_rate::float8 as vat_rate, s.vat_bin, s.vat_inclusive, s.freeze_min_days, s.freeze_max_days, s.freeze_max_count,
+    s.booking_open_days, s.booking_max_active, s.booking_cancel_hours, s.noshow_limit, s.noshow_window_days, s.noshow_block_days`);
 
 /** The rules in force now (always one row: migration 008 inserts it). Pricing and freezes read them per sale. */
 export async function readOrgRules(db: Queryable): Promise<OrgRules> {
@@ -123,6 +141,12 @@ export function settingsRouter(deps: AppDeps): Router {
                     vat_inclusive = coalesce(${body.vat_inclusive ?? null}::boolean, vat_inclusive),
                     freeze_min_days = ${min}, freeze_max_days = ${max},
                     freeze_max_count = coalesce(${body.freeze_max_count ?? null}::int, freeze_max_count),
+                    booking_open_days = coalesce(${body.booking_open_days ?? null}::int, booking_open_days),
+                    booking_max_active = coalesce(${body.booking_max_active ?? null}::int, booking_max_active),
+                    booking_cancel_hours = coalesce(${body.booking_cancel_hours ?? null}::int, booking_cancel_hours),
+                    noshow_limit = coalesce(${body.noshow_limit ?? null}::int, noshow_limit),
+                    noshow_window_days = coalesce(${body.noshow_window_days ?? null}::int, noshow_window_days),
+                    noshow_block_days = coalesce(${body.noshow_block_days ?? null}::int, noshow_block_days),
                     updated_at = now(), updated_by = ${currentUser(req).oid}`);
             const after = await read(tx);
             const { updated_at: _at, updated_by: _by, ...rules } = after;

@@ -74,7 +74,14 @@ describe('HQ staff (D-055)', () => {
         expect(assignable_roles.hq).toEqual(['OWNER', 'HQ_ADMIN']);
         const { branches } = (await request(t.app).get('/api/v1/hq/staff').set(owner).expect(200)).body.data as { branches: { code: string }[] };
         expect(branches.map(b => b.code)).toEqual(['HQ', 'DHA', 'GUL', 'UTT']);
-        expect((await list(owner, `?branch_oid=${GUL.oid}&role=TRAINER`)).rows.map(r => r.username)).toEqual(['trainer.gulshan']);
+        // trainer.gulshan and the four trainer accounts of the phase 3 seed (005_scheduling.sql), which cannot sign in yet.
+        expect((await list(owner, `?branch_oid=${GUL.oid}&role=TRAINER`)).rows.map(r => r.username).sort()).toEqual([
+            'nabila.islam',
+            'shakib.hasan',
+            'tahmina.rahman',
+            'tom.blake',
+            'trainer.gulshan'
+        ]);
         expect((await list(owner, '?q=lamia')).rows.map(r => r.username)).toEqual(['desk.gulshan']);
     });
 
@@ -218,7 +225,15 @@ describe('HQ staff (D-055)', () => {
 describe('branch staff (D-055)', () => {
     it('a manager sees only their branch, and may hand out front desk and trainer roles', async () => {
         const { rows, assignable_roles } = await list(managerGul);
-        expect(rows.map(r => r.username).sort()).toEqual(['desk.gulshan', 'manager.gulshan', 'trainer.gulshan']);
+        expect(rows.map(r => r.username).sort()).toEqual([
+            'desk.gulshan',
+            'manager.gulshan',
+            'nabila.islam',
+            'shakib.hasan',
+            'tahmina.rahman',
+            'tom.blake',
+            'trainer.gulshan'
+        ]);
         expect(assignable_roles.branch).toEqual(['FRONT_DESK', 'TRAINER']);
         expect(rows.find(r => r.username === 'manager.gulshan')?.manageable).toBe(false);
         expect(rows.find(r => r.username === 'desk.gulshan')?.manageable).toBe(true);

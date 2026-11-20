@@ -84,6 +84,16 @@ export function requireBranch(kind: BranchKind): RequestHandler {
     };
 }
 
+/** Like `requireBranch`, for routes that work at HQ and at a branch alike (exercise media, the exercise library). */
+export function requireAnyBranch(): RequestHandler {
+    return (req, _res, next) => {
+        if (!req.auth) throw new AppError(401, 'Please sign in');
+        if (req.auth.branchOid && !req.auth.assignment) throw new AppError(403, 'You do not work at this branch');
+        if (!req.auth.assignment) throw new AppError(403, 'Choose a branch first');
+        next();
+    };
+}
+
 /** The active branch inside a handler behind `requireBranch`. */
 export function currentBranch(req: Request): StaffAssignment['branch'] {
     const branch = req.auth?.assignment?.branch;
