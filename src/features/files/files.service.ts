@@ -9,7 +9,7 @@ import { UPLOAD_URL_SECONDS } from '#src/lib/file-store.ts';
 import { AppError } from '#src/lib/http.ts';
 import { log } from '#src/lib/logger.ts';
 
-import { type FileKind, type FileRow, filesRepo } from './files.repo.ts';
+import { type FileKind, type FileRow, filesRepo, GUEST_KEY_PREFIX } from './files.repo.ts';
 
 /**
  * Member photos and documents (phase 2 step 2; D-058, D-069). The upload is two calls around the browser's PUT:
@@ -72,8 +72,11 @@ async function checkStorage(deps: FileDeps, tx: Queryable, ctx: BranchContext, a
 
 const secretOf = (deps: Pick<FileDeps, 'jwtSecret'>) => new TextEncoder().encode(`upload:${deps.jwtSecret}`);
 
-/** The key never comes from the client: `<branch>/<file oid>`. */
-const storageKey = (branchOid: string, oid: string) => `${branchOid}/${oid}`;
+/**
+ * The key never comes from the client: `<branch>/<file oid>`, or `guest/<branch>/<file oid>` for an upload from a
+ * guest session (D-077), which the bucket deletes after 7 days.
+ */
+const storageKey = (branchOid: string, oid: string, guest: boolean) => `${guest ? GUEST_KEY_PREFIX : ''}${branchOid}/${oid}`;
 
 export interface StartInput {
     kind: FileKind;
@@ -83,14 +86,14 @@ export interface StartInput {
     member_oid?: string | null | undefined;
 }
 
-export async function startUpload(deps: FileDeps, ctx: BranchContext, input: StartInput): Promise<{ file: FileRow; upload: UploadTarget }> {
+export async function startUpload(deps: FileDeps, ctx: BranchContext, input: StartInput, guest = false): Promise<{ file: FileRow; upload: UploadTarget }> {
     const rule = FILE_RULES[input.kind];
     if (!rule.types.includes(input.content_type)) throw new AppError(415, rule.label, [{ path: 'content_type', message: rule.label }]);
     if (input.size > rule.maxBytes) throw new AppError(413, rule.label, [{ path: 'size', message: rule.label }]);
     if (!ctx.actor) throw new AppError(401, 'Please sign in');
     const actor = ctx.actor.oid;
     const oid = crypto.randomUUID();
-    const key = storageKey(ctx.branchOid, oid);
+    const key = storageKey(ctx.branchOid, oid, guest);
     const file = await withBranchTx(deps.db, ctx, async tx => {
         if (input.member_oid && input.kind === 'member_document' && (await filesRepo.countReady(tx, input.member_oid, input.kind)) >= rule.perMember) {
             throw new AppError(409, `A member has at most ${rule.perMember} documents. Delete one first.`);

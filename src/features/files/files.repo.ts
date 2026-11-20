@@ -18,7 +18,23 @@ export interface FileRow {
     created_by_name: string | null;
 }
 
-const COLUMNS = sql.raw(`f.oid, f.branch_oid, f.member_oid, f.kind, f.name, f.content_type, f.size_bytes, f.status, f.created_at,
+/**
+ * Guest uploads on the hosted demo (D-077) are stored under this prefix, and the bucket's lifecycle rule deletes them
+ * after `GUEST_FILE_DAYS` (rule `expire-guest-uploads`, fitmanager-infra/cloudflare/demo-deploy.md). The rest are kept.
+ */
+export const GUEST_KEY_PREFIX = 'guest/';
+export const GUEST_FILE_DAYS = 7;
+
+/** A guest upload past its lifetime (time rule on read): its object is gone or about to go, so it reads as deleted. */
+const expired = (alias: string) => `(${alias}.storage_key like '${GUEST_KEY_PREFIX}%' and ${alias}.created_at < now() - interval '${GUEST_FILE_DAYS} days')`;
+
+/** A member photo pointer (`column` holds a file oid), or null once it points at an expired guest upload. */
+export const livePhotoExpr = (column: string) =>
+    `case when exists (select 1 from file gf where gf.oid = ${column} and ${expired('gf')}) then null else ${column} end`;
+export const livePhoto = (column: string) => sql.raw(livePhotoExpr(column));
+
+const COLUMNS = sql.raw(`f.oid, f.branch_oid, f.member_oid, f.kind, f.name, f.content_type, f.size_bytes,
+    case when f.status in ('pending', 'ready') and ${expired('f')} then 'deleted' else f.status end as status, f.created_at,
     u.name as created_by_name from file f left join app_user u on u.oid = f.created_by`);
 
 /** Branch data under RLS: call inside `withBranchTx`; each statement filters the branch itself too. */
@@ -57,6 +73,7 @@ export const filesRepo = {
         const [row] = await tx.query<{ used: string }>(sql`
             select coalesce(sum(size_bytes), 0)::text as used from file
             where (status = 'ready' or (status = 'pending' and created_at > now() - interval '1 day'))
+              and not ${sql.raw(expired('file'))}
               and oid is distinct from ${exceptOid}::uuid`);
         await tx.query(sql`select set_config('app.branch_oids', ${`{${restoreOids.join(',')}}`}, true)`);
         return Number(row?.used ?? 0);
@@ -89,7 +106,7 @@ export const filesRepo = {
     /** Ready documents of one member (the D-069 count). */
     countReady: async (tx: Queryable, memberOid: string, kind: FileKind) => {
         const [row] = await tx.query<{ n: number }>(
-            sql`select count(*)::int as n from file where member_oid = ${memberOid} and kind = ${kind} and status = 'ready'`
+            sql`select count(*)::int as n from file where member_oid = ${memberOid} and kind = ${kind} and status = 'ready' and not ${sql.raw(expired('file'))}`
         );
         return row?.n ?? 0;
     },
@@ -97,7 +114,7 @@ export const filesRepo = {
     forMember: (tx: Queryable, memberOid: string, branchOids: readonly string[]) =>
         tx.query<FileRow>(sql`
             select ${COLUMNS}
-            where f.member_oid = ${memberOid} and f.branch_oid = any (${branchOids}::uuid[]) and f.status = 'ready'
+            where f.member_oid = ${memberOid} and f.branch_oid = any (${branchOids}::uuid[]) and f.status = 'ready' and not ${sql.raw(expired('f'))}
             order by f.created_at desc`),
 
     setMember: async (tx: Queryable, oid: string, memberOid: string) => {

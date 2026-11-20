@@ -1,6 +1,7 @@
 import express, { type Response, Router } from 'express';
 
-import { authenticate, requireAbility, requireBranch } from '#src/auth/middleware.ts';
+import { isGuest } from '#src/auth/guest.ts';
+import { authenticate, currentUser, requireAbility, requireBranch } from '#src/auth/middleware.ts';
 import type { AppDeps } from '#src/container.ts';
 import { branchContext } from '#src/db/tenancy.ts';
 import { ok, parse } from '#src/lib/http.ts';
@@ -32,7 +33,13 @@ export function filesRouter(deps: AppDeps): Router {
 
     router.post('/v1/files', ...branch, requireAbility('create', 'Member'), async (req, res) => {
         const body = parse(startSchema, req.body);
-        ok(res, await startUpload(fileDeps, branchContext(req), body), 'Upload the file to the URL given', 201);
+        // A guest's upload is kept 7 days only (D-077).
+        ok(
+            res,
+            await startUpload(fileDeps, branchContext(req), body, isGuest(deps.config, currentUser(req).username)),
+            'Upload the file to the URL given',
+            201
+        );
     });
 
     router.put('/v1/files/:oid/content', express.raw({ type: () => true, limit: '6mb' }), async (req, res) => {

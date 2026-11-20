@@ -5,7 +5,7 @@ import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { atBranch, bearer, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
 
 // Guest access (D-076): the accounts the hosted demo's /demo picker signs in as, without a password.
-const GUESTS = 'owner,manager.gulshan,desk.gulshan,trainer.gulshan,MEM-GUL-000001';
+const GUESTS = 'owner,admin.hq,manager.gulshan,desk.gulshan,trainer.gulshan,MEM-GUL-000001';
 const LOCKED = 'This is a shared guest account of the demo, so it cannot be changed.';
 
 let t: TestApp;
@@ -48,6 +48,7 @@ describe('guest sign-in', () => {
         const list = (await request(t.app).get('/api/v1/auth/guest').expect(200)).body.data as Record<string, unknown>[];
         expect(list.map(a => [a['username'], a['kind'], a['role']])).toEqual([
             ['owner', 'staff', 'OWNER'],
+            ['admin.hq', 'staff', 'HQ_ADMIN'],
             ['manager.gulshan', 'staff', 'BRANCH_MANAGER'],
             ['desk.gulshan', 'staff', 'FRONT_DESK'],
             ['trainer.gulshan', 'staff', 'TRAINER'],

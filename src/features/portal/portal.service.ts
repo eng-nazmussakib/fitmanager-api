@@ -6,6 +6,7 @@ import { sql } from '#src/db/sql.ts';
 import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { memberAttendance } from '#src/features/attendance/attendance.service.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
+import { livePhoto } from '#src/features/files/files.repo.ts';
 import { viewUrl } from '#src/features/files/files.service.ts';
 import { memberAt, toWire } from '#src/features/members/members.service.ts';
 import { notificationsRepo } from '#src/features/notifications/notifications.service.ts';
@@ -152,7 +153,7 @@ export async function portalIdentity(deps: PortalDeps, user: { oid: string; name
     if (!ctx) return null;
     return withBranchTx(deps.db, ctx, async tx => {
         const [m] = await tx.query<{ code: string; photo_file_oid: string | null; branch_oid: string; b_code: string; slug: string; b_name: string }>(sql`
-            select m.code, m.photo_file_oid, m.branch_oid, b.code as b_code, b.slug, b.name as b_name
+            select m.code, ${livePhoto('m.photo_file_oid')} as photo_file_oid, m.branch_oid, b.code as b_code, b.slug, b.name as b_name
             from member m join branch b on b.oid = m.branch_oid where m.oid = ${memberOid} and m.branch_oid = ${ctx.branchOid}`);
         if (!m) return null;
         const photo = m.photo_file_oid ? await viewUrl(deps, { oid: m.photo_file_oid, branch_oid: m.branch_oid }) : null;

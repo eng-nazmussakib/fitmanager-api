@@ -2,6 +2,7 @@ import type { Db, Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
 import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
+import { livePhotoExpr } from '#src/features/files/files.repo.ts';
 import { viewUrl } from '#src/features/files/files.service.ts';
 import { addDays, daysBetween, dhakaInstant, type DhakaNow, dhakaNow } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
@@ -166,7 +167,8 @@ export interface CheckInWire {
     by: string;
 }
 
-const CHECK_IN = sql.raw(`c.oid, c.branch_oid, c.member_oid, c.member_branch_oid, c.member_code, c.member_name, c.member_photo_file_oid,
+const CHECK_IN = sql.raw(`c.oid, c.branch_oid, c.member_oid, c.member_branch_oid, c.member_code, c.member_name,
+    ${livePhotoExpr('c.member_photo_file_oid')} as member_photo_file_oid,
     c.member_branch_name, c.in_at, c.out_at, c.auto_out, c.backdated, c.override_reason, o.name as override_name, coalesce(u.name, 'System') as by_name
     from check_in c left join app_user u on u.oid = c.created_by left join app_user o on o.oid = c.override_by`);
 

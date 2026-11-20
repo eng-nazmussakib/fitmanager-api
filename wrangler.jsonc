@@ -16,9 +16,9 @@
         "NODE_ENV": "production",
         "APP_ENV": "demo",
         "LOG_LEVEL": "info",
-        // Guest access (D-076): the seeded accounts the /demo picker signs in as without a password. Empty: off.
-        // No trainer yet: its home (classes) is a later feature that only the mock has (D-070 c).
-        "GUEST_ACCOUNTS": "owner,manager.gulshan,desk.gulshan,MEM-GUL-000001"
+        // Guest access (D-076): the seeded accounts the /demo picker signs in as without a password, one per role.
+        // Empty: off. Their uploads go under guest/ in R2 and expire after 7 days (D-077).
+        "GUEST_ACCOUNTS": "owner,admin.hq,manager.gulshan,desk.gulshan,trainer.gulshan,MEM-GUL-000001"
     },
     "hyperdrive": [
         {

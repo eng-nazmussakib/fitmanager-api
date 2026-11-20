@@ -1,5 +1,6 @@
 import type { Queryable } from '#src/db/db.ts';
 import { type Sql, sql } from '#src/db/sql.ts';
+import { livePhoto } from '#src/features/files/files.repo.ts';
 
 export type MemberStatus = 'Active' | 'Expired' | 'Frozen' | 'Suspended' | 'Pending';
 export type Gender = 'Male' | 'Female';
@@ -54,7 +55,7 @@ function memberState(today: string): Sql {
     return sql`
         select m.oid, m.branch_oid, b.code as branch_code, b.slug as branch_slug, b.name as branch_name, m.code, m.name, m.phone, m.gender,
             m.email, m.date_of_birth::text as date_of_birth, m.address, m.emergency_contact, m.health_flags, m.health_declared,
-            m.photo_file_oid, m.joined_on::text as joined_on, m.pending, m.suspended_reason, m.notes, m.anonymised_at is not null as anonymised,
+            ${livePhoto('m.photo_file_oid')} as photo_file_oid, m.joined_on::text as joined_on, m.pending, m.suspended_reason, m.notes, m.anonymised_at is not null as anonymised,
             m.source,
             case
                 when m.suspended_at is not null then 'Suspended'

@@ -256,3 +256,52 @@ describe('files: one storage limit for every branch together (D-074)', () => {
         expect(after?.status).toBe('rejected');
     });
 });
+
+describe('files: guest uploads expire after 7 days (D-077)', () => {
+    let g: TestApp;
+    const gStore = createMemoryStore('s3');
+    beforeAll(async () => {
+        g = await createTestApp({ GUEST_ACCOUNTS: 'desk.gulshan' }, { files: gStore });
+    });
+    afterAll(() => g.close());
+
+    const keyOf = async (oid: string) => (await g.ownerDb.query<{ storage_key: string }>(sql`select storage_key from file where oid = ${oid}`))[0]!.storage_key;
+    async function photo(headers: Record<string, string>) {
+        const start = await request(g.app)
+            .post('/api/v1/files')
+            .set(headers)
+            .send({ kind: 'member_photo', name: 'p.png', content_type: 'image/png', size: PNG.length })
+            .expect(201);
+        const { oid } = start.body.data.file as { oid: string };
+        await gStore.write(await keyOf(oid), new Uint8Array(PNG), 'image/png');
+        await request(g.app).post(`/api/v1/files/${oid}/complete`).set(headers).expect(200);
+        return oid;
+    }
+
+    it('a guest’s upload is stored under guest/ and reads as gone after 7 days; staff uploads are kept', async () => {
+        const guestToken = (await request(g.app).post('/api/v1/auth/guest').send({ username: 'desk.gulshan' }).expect(200)).body.data.access_token as string;
+        const guest = atBranch(guestToken, GUL.oid);
+        const manager = atBranch((await signIn(g.app, 'manager.gulshan', 'Manager@123')).access_token, GUL.oid);
+
+        const guestPhoto = await photo(guest);
+        const staffPhoto = await photo(manager);
+        expect(await keyOf(guestPhoto)).toBe(`guest/${GUL.oid}/${guestPhoto}`);
+        expect(await keyOf(staffPhoto)).toBe(`${GUL.oid}/${staffPhoto}`);
+
+        const member = (
+            await request(g.app)
+                .post('/api/v1/members')
+                .set(guest)
+                .send({ name: 'Guest Photo', phone: '01711111199', gender: 'Male', health_flags: [], health_declared: true, photo_file_oid: guestPhoto })
+                .expect(201)
+        ).body.data as { oid: string; photo_url: string | null };
+        expect(member.photo_url).not.toBeNull();
+
+        // Eight days on (the bucket's rule has deleted the object): the file and the photo read as gone.
+        await g.ownerDb.query(sql`update file set created_at = created_at - interval '8 days' where oid in (${guestPhoto}, ${staffPhoto})`);
+        await request(g.app).get(`/api/v1/files/${guestPhoto}`).set(manager).expect(404);
+        const later = (await request(g.app).get(`/api/v1/members/${member.oid}`).set(manager).expect(200)).body.data as { photo_url: string | null };
+        expect(later.photo_url).toBeNull();
+        await request(g.app).get(`/api/v1/files/${staffPhoto}`).set(manager).expect(200);
+    });
+});
