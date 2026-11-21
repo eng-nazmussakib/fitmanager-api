@@ -16,6 +16,7 @@ import { AppError, ok, parse } from '#src/lib/http.ts';
  * - Freeze rule (D-063): the shortest and longest freeze, in days. Which plans may freeze is per plan template.
  * - Class booking (D-081): how far ahead a class opens, how many future bookings a member may hold, the free
  *   cancellation window, and the no-show rule (so many no-shows or late cancels in so many days block booking).
+ * - Governance (D-091, D-095): the policy grace period, and the complaint response deadline.
  */
 export interface OrgRules {
     /** A fraction: 0.15 = 15 %. 0 = not VAT-registered. */
@@ -33,6 +34,10 @@ export interface OrgRules {
     noshow_limit: number;
     noshow_window_days: number;
     noshow_block_days: number;
+    /** Days after an "accept again" version (or joining) before an unaccepted policy blocks check-in (D-091). */
+    policy_grace_days: number;
+    /** Hours to the first reply before a complaint is overdue (D-095). */
+    complaint_response_hours: number;
 }
 
 export interface OrgSettings extends OrgRules {
@@ -83,13 +88,16 @@ const updateSchema = v.pipe(
         booking_cancel_hours: v.optional(whole(0, 72)),
         noshow_limit: v.optional(whole(1, 20)),
         noshow_window_days: v.optional(whole(1, 365)),
-        noshow_block_days: v.optional(whole(1, 90))
+        noshow_block_days: v.optional(whole(1, 90)),
+        policy_grace_days: v.optional(whole(0, 90)),
+        complaint_response_hours: v.optional(whole(1, 336))
     }),
     v.check(b => Object.keys(b).length > 0, 'Nothing to change')
 );
 
 const RULES = sql.raw(`s.vat_rate::float8 as vat_rate, s.vat_bin, s.vat_inclusive, s.freeze_min_days, s.freeze_max_days, s.freeze_max_count,
-    s.booking_open_days, s.booking_max_active, s.booking_cancel_hours, s.noshow_limit, s.noshow_window_days, s.noshow_block_days`);
+    s.booking_open_days, s.booking_max_active, s.booking_cancel_hours, s.noshow_limit, s.noshow_window_days, s.noshow_block_days,
+    s.policy_grace_days, s.complaint_response_hours`);
 
 /** The rules in force now (always one row: migration 008 inserts it). Pricing and freezes read them per sale. */
 export async function readOrgRules(db: Queryable): Promise<OrgRules> {
@@ -147,6 +155,8 @@ export function settingsRouter(deps: AppDeps): Router {
                     noshow_limit = coalesce(${body.noshow_limit ?? null}::int, noshow_limit),
                     noshow_window_days = coalesce(${body.noshow_window_days ?? null}::int, noshow_window_days),
                     noshow_block_days = coalesce(${body.noshow_block_days ?? null}::int, noshow_block_days),
+                    policy_grace_days = coalesce(${body.policy_grace_days ?? null}::int, policy_grace_days),
+                    complaint_response_hours = coalesce(${body.complaint_response_hours ?? null}::int, complaint_response_hours),
                     updated_at = now(), updated_by = ${currentUser(req).oid}`);
             const after = await read(tx);
             const { updated_at: _at, updated_by: _by, ...rules } = after;

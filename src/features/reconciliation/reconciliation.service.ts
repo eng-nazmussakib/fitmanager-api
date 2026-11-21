@@ -8,8 +8,9 @@ import { addDays, dhakaInstant } from '#src/lib/clock.ts';
  * 1. every invoice's paid amount (payments minus refunds) is between 0 and its total;
  * 2. each cash closing's expected cash equals the cash the system has for that staff member and day
  *    (cash payments minus cash refunds they took), and what they counted is shown beside it;
- * 3. every money write has its audit row: an invoice (create / upgrade; a locker rental's invoice: invoice create), each later payment (pay), each refund,
- *    each cash closing.
+ * 3. every money write has its audit row: an invoice (create / upgrade; a locker rental's or a POS sale's invoice: invoice create), each later
+ *    payment (pay), each refund (a POS return's too), each cash closing;
+ * 4. every POS sale took its items off the stock, and every return put the undamaged ones back (phase 6, D-102).
  * Each check lists at most 100 offending rows; `ok` is true only when every check is clean.
  */
 
@@ -108,6 +109,25 @@ async function unaudited(tx: Queryable, branches: readonly string[], from: Date,
         order by at`);
 }
 
+/** POS invoices whose lines do not match the `sold` moves, and returns whose undamaged items did not come back. */
+async function stockNotMoved(tx: Queryable, branches: readonly string[], from: Date, to: Date) {
+    return tx.query<{ branch_code: string; ref: string; expected: number; moved: number }>(sql`
+        select b.code as branch_code, i.number as ref, l.qty as expected, coalesce(m.qty, 0) as moved
+        from invoice i join branch b on b.oid = i.branch_oid
+        cross join lateral (select coalesce(sum((x ->> 'qty')::int), 0)::int as qty from jsonb_array_elements(i.lines) x where x ? 'product_oid') l
+        left join lateral (select (-sum(sm.qty))::int as qty from stock_movement sm where sm.ref_oid = i.oid and sm.kind = 'sold') m on true
+        where i.kind = 'pos' and i.branch_oid = any (${branches}::uuid[]) and i.issued_at >= ${from} and i.issued_at < ${to}
+          and l.qty <> coalesce(m.qty, 0)
+        union all
+        select b.code, i.number || ' · return', l.qty, coalesce(m.qty, 0)
+        from pos_return r join invoice i on i.oid = r.invoice_oid join branch b on b.oid = r.branch_oid
+        cross join lateral (select coalesce(sum((x ->> 'qty')::int) filter (where not coalesce((x ->> 'damaged')::boolean, false)), 0)::int as qty
+            from jsonb_array_elements(r.lines) x) l
+        left join lateral (select sum(sm.qty)::int as qty from stock_movement sm where sm.ref_oid = r.oid and sm.kind = 'returned') m on true
+        where r.branch_oid = any (${branches}::uuid[]) and r.at >= ${from} and r.at < ${to} and l.qty <> coalesce(m.qty, 0)
+        order by 2`);
+}
+
 async function totals(tx: Queryable, branches: readonly string[], from: Date, to: Date, fromDay: string, toDay: string) {
     const [row] = await tx.query<{ invoices: number; invoiced: number; received: number; refunded: number; closings: number }>(sql`
         select
@@ -130,7 +150,8 @@ export async function reconciliation(db: Db, ctx: BranchContext, branches: reado
                 'audit',
                 'Every invoice, payment, refund and cash closing has its audit row',
                 (await unaudited(tx, branches, from, to, fromDay, toDay)).map(r => ({ ...r, at: r.at.toISOString() }))
-            )
+            ),
+            check('stock_moved', 'Every POS sale and return moved the stock', await stockNotMoved(tx, branches, from, to))
         ];
         return {
             from: fromDay,

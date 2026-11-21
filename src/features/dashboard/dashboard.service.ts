@@ -166,7 +166,7 @@ export async function dashboard(db: Db, ctx: BranchContext, branchOids: readonly
             const b = branches.find(x => x.oid === m.branch_oid);
             if (!b) continue;
             const base = { member_oid: m.oid, member_name: m.name, member_code: m.code, branch: ref(b) };
-            if (m.status === 'Suspended') attention.push({ ...base, kind: 'suspended', detail: m.suspended_reason ?? 'Suspended' });
+            if (m.status === 'Suspended') attention.push({ ...base, kind: 'suspended', detail: m.sanction_reason ?? 'Suspended' });
             if (m.dues > b.dues_limit)
                 attention.push({ ...base, kind: 'dues', detail: `Owes ৳${m.dues.toLocaleString('en-IN')} (limit ৳${b.dues_limit.toLocaleString('en-IN')})` });
             if (m.status === 'Active' && m.days_left !== null && m.days_left >= 0 && m.days_left <= 3) {

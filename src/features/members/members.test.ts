@@ -5,7 +5,7 @@ import { systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { createMemoryStore } from '#src/lib/file-store.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { rlsScoped } from '#src/testing/rls.ts';
-import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
+import { atBranch, createTestApp, signIn, suspendMember, type TestApp } from '#src/testing/test-app.ts';
 
 const { GUL, DHA } = DEMO_BRANCHES;
 const NOW = new Date('2026-11-19T06:00:00Z'); // 12:00 in Dhaka
@@ -177,17 +177,28 @@ describe('members: edit, photo, suspend', () => {
             .expect(400);
     });
 
-    it('suspend needs a manager and a reason; the status follows; lifting it restores the status', async () => {
+    it('a suspension is a sanction (D-093): the status and the record follow; the timeline lists it', async () => {
         const m = await create();
-        await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(desk).send({ reason: 'Unpaid dues' }).expect(403);
-        await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: '' }).expect(400);
-        const s = await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: 'Abusive behaviour' }).expect(200);
-        expect(s.body.data).toMatchObject({ status: 'Suspended', suspended_reason: 'Abusive behaviour', notes: 'Suspended: Abusive behaviour' });
-        await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: 'Again' }).expect(409);
-        const u = await request(t.app).post(`/api/v1/members/${m.oid}/unsuspend`).set(manager).expect(200);
-        expect(u.body.data).toMatchObject({ status: 'Pending', suspended_reason: null });
+        await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: 'Abusive behaviour' }).expect(404);
+        await suspendMember(t.app, manager, m.code, { today: '2026-11-19', now: '2026-11-19T11:00:00+06:00', days: 3 });
+        const s = await request(t.app).get(`/api/v1/members/${m.oid}`).set(desk).expect(200);
+        expect(s.body.data).toMatchObject({
+            status: 'Suspended',
+            sanction: { level: 'suspension', reason: 'Abusive behaviour', until: '2026-11-21', branch_name: 'Gulshan' }
+        });
         const tl = (await request(t.app).get(`/api/v1/members/${m.oid}/timeline`).set(desk).expect(200)).body.data as { kind: string; title: string }[];
-        expect(tl.map(e => e.title)).toEqual(['Suspension lifted', 'Suspended', 'Joined']);
+        expect(tl.filter(e => e.kind === 'discipline').map(e => e.title)).toEqual(['Suspended (19 Nov 2026 to 21 Nov 2026)']);
+    });
+
+    it('policies signed at the desk are recorded as accepted on paper (D-090)', async () => {
+        const created = await request(t.app)
+            .post('/api/v1/members')
+            .set(desk)
+            .send({ ...body(), phone: '01955000001', policies_signed: true })
+            .expect(201);
+        const oid = created.body.data.oid as string;
+        const list = (await request(t.app).get(`/api/v1/members/${oid}/policies`).set(desk).expect(200)).body.data as { state: string; method: string }[];
+        expect(list.map(p => [p.state, p.method])).toEqual(Array(5).fill(['accepted', 'paper']));
     });
 });
 

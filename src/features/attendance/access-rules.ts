@@ -7,11 +7,15 @@
  *
  * Every rule that fails is reported (not just the first), each with the reason the desk reads out and whether a
  * manager may override it. Order = the order shown on screen.
+ *
+ * Phase 5 (D-091, D-093): a suspension in force blocks every branch and a ban blocks the branches it covers; neither
+ * is overridden at the desk (it is lifted, or overturned on appeal). A required policy not accepted blocks once its
+ * grace period is over (`blocks_on`), and a manager may override that like any other rule.
  */
 import { clock12, daysBetween, shortDate, taka } from '#src/lib/clock.ts';
 
-export type AccessRuleId = 'membership' | 'expired' | 'frozen' | 'suspended' | 'dues' | 'hours' | 'already_in' | 'pending';
-export type MemberStatus = 'Active' | 'Expired' | 'Frozen' | 'Suspended' | 'Pending';
+export type AccessRuleId = 'membership' | 'expired' | 'frozen' | 'suspended' | 'banned' | 'dues' | 'policy' | 'hours' | 'already_in' | 'pending';
+export type MemberStatus = 'Active' | 'Expired' | 'Frozen' | 'Suspended' | 'Banned' | 'Pending';
 
 export interface RuleFailure {
     rule: AccessRuleId;
@@ -27,6 +31,17 @@ export interface AccessFacts {
     branch: { name: string; hours: { days: number[]; open: string; close: string }[] };
     /** An open visit (not checked out), anywhere: its branch and time. */
     open_check_in: { branch_name: string; time: string } | null;
+    /** Suspensions not overturned, anywhere, and the bans covering the branch entered (D-093). `branch_name`: where given. */
+    sanctions?: {
+        level: 'suspension' | 'ban';
+        starts_on: string;
+        ends_on: string | null;
+        scope: 'branch' | 'all' | null;
+        branch_name: string;
+        reason: string;
+    }[];
+    /** Required policies the member has not accepted, and the first day each one blocks (D-091). */
+    policies?: { title: string; blocks_on: string }[];
 }
 
 /** "Now" at the branch, in Asia/Dhaka. */
@@ -43,7 +58,11 @@ export function evaluateAccess(facts: AccessFacts, now: AccessClock): RuleFailur
     const { member, subscription: sub, branch } = facts;
 
     if (member.status === 'Pending') failures.push(fail('pending', 'Join request only: the membership starts with the first payment.', false));
-    if (member.status === 'Suspended') failures.push(fail('suspended', 'Membership suspended by the branch.', true));
+    for (const x of facts.sanctions ?? []) {
+        if (x.level === 'suspension' && x.starts_on <= now.date && x.ends_on !== null && now.date <= x.ends_on)
+            failures.push(fail('suspended', `Suspended until ${shortDate(x.ends_on)} (${x.branch_name}): ${x.reason}`, false));
+        if (x.level === 'ban') failures.push(fail('banned', `Banned ${x.scope === 'all' ? 'from every branch' : `from ${x.branch_name}`}: ${x.reason}`, false));
+    }
 
     if (!sub) {
         if (member.status !== 'Pending') failures.push(fail('membership', 'No membership on record.', false));
@@ -59,6 +78,12 @@ export function evaluateAccess(facts: AccessFacts, now: AccessClock): RuleFailur
 
     if (member.dues > member.dues_limit) {
         failures.push(fail('dues', `Dues ${taka(member.dues)} exceed the limit of ${taka(member.dues_limit)} (${member.home_branch_name}).`, true));
+    }
+
+    const overdue = (facts.policies ?? []).filter(p => p.blocks_on <= now.date);
+    if (overdue.length) {
+        const names = overdue.map(p => p.title).join(', ');
+        failures.push(fail('policy', `Not accepted: ${names}. Accept in the member portal or sign at the desk.`, true));
     }
 
     const today = branch.hours.filter(h => h.days.includes(now.weekday));

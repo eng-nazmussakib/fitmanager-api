@@ -3,7 +3,7 @@ import request from 'supertest';
 import { sql } from '#src/db/sql.ts';
 import { systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
-import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
+import { atBranch, createTestApp, signIn, suspendMember, type TestApp } from '#src/testing/test-app.ts';
 
 const { GUL, DHA } = DEMO_BRANCHES;
 let now = new Date('2026-11-19T06:00:00Z'); // 12:00 in Dhaka
@@ -113,7 +113,7 @@ describe('quote and sale (D-057, D-061)', () => {
         expect(overlap.body.message).toMatch(/^This overlaps the Single · Monthly plan that runs until 18 Dec 2026/);
         await sale(m.oid, { start_date: '2026-12-19', charge_admission: false });
         const s = await member();
-        await request(t.app).post(`/api/v1/members/${s.oid}/suspend`).set(manager).send({ reason: 'Behaviour' }).expect(200);
+        await suspendMember(t.app, manager, (s as { code: string }).code, { today: '2026-11-19', now: '2026-11-19T11:00:00+06:00' });
         await sale(s.oid, {}, desk, 409);
     });
 

@@ -2,7 +2,7 @@ import type { Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
 import { clock12, dhakaNow, shortDate, taka } from '#src/lib/clock.ts';
 
-export type TimelineKind = 'joined' | 'subscription' | 'payment' | 'freeze' | 'check_in' | 'override' | 'note' | 'status';
+export type TimelineKind = 'joined' | 'subscription' | 'payment' | 'freeze' | 'check_in' | 'override' | 'note' | 'status' | 'discipline' | 'policy';
 
 export interface TimelineEvent {
     oid: string;
@@ -18,7 +18,7 @@ const time = (d: Date | string) => dhakaNow(new Date(d)).time;
 
 /**
  * A member's history, newest first (the mock's timeline): joined, plans, freezes, cancels, payments and refunds,
- * overrides, the last 10 visits, suspensions and transfers (from the audit log). A read model: it reads the
+ * overrides, the last 10 visits, transfers (from the audit log), sanctions (D-093) and policy acceptances (D-090). A read model: it reads the
  * sales and attendance tables directly, at the branches in context.
  */
 export async function memberTimeline(tx: Queryable, member: { oid: string; code: string; joined_on: string }): Promise<TimelineEvent[]> {
@@ -127,26 +127,81 @@ export async function memberTimeline(tx: Queryable, member: { oid: string; code:
     const status = await tx.query<{
         oid: string;
         action: string;
-        after: { reason?: string; suspended_reason?: string; to?: { name: string } } | null;
+        after: { reason?: string; to?: { name: string } } | null;
         created_at: Date;
         actor_name: string | null;
     }>(sql`
         select oid, action, after, created_at, actor_name from audit_log
-        where entity = 'member' and entity_key = ${member.code} and action in ('suspend', 'unsuspend', 'transfer_out', 'transfer_in')`);
+        where entity = 'member' and entity_key = ${member.code} and action in ('transfer_out', 'transfer_in')`);
     const titles: Record<string, string> = {
-        suspend: 'Suspended',
-        unsuspend: 'Suspension lifted',
         transfer_out: 'Moved to another branch',
         transfer_in: 'Joined from another branch'
     };
     for (const a of status) {
-        const detail =
-            a.action === 'suspend'
-                ? (a.after?.suspended_reason ?? null)
-                : a.action.startsWith('transfer')
-                  ? `${a.after?.to?.name ?? ''}: ${a.after?.reason ?? ''}`
-                  : null;
+        const detail = `${a.after?.to?.name ?? ''}: ${a.after?.reason ?? ''}`;
         events.push({ oid: a.oid, kind: 'status', at: iso(a.created_at), title: titles[a.action] ?? a.action, detail, by: a.actor_name });
+    }
+    // Sanctions (D-093), with where they were given; the case itself is on the discipline tab.
+    const sanctions = await tx.query<{
+        oid: string;
+        level: string;
+        reason: string;
+        starts_on: string;
+        ends_on: string | null;
+        scope: string | null;
+        given_by_name: string;
+        created_at: Date;
+        lifted_at: Date | null;
+        lift_reason: string | null;
+        lifted_by_name: string | null;
+        overturned_at: Date | null;
+        branch_name: string;
+    }>(sql`
+        select x.oid, x.level, x.reason, x.starts_on::text as starts_on, x.ends_on::text as ends_on, x.scope, x.given_by_name, x.created_at,
+            x.lifted_at, x.lift_reason, x.lifted_by_name, x.overturned_at, b.name as branch_name
+        from sanction x join branch b on b.oid = x.branch_oid where x.member_oid = ${member.oid}`);
+    const LEVEL: Record<string, string> = { verbal: 'Verbal warning', written: 'Written warning', suspension: 'Suspended', ban: 'Banned' };
+    for (const x of sanctions) {
+        const reach =
+            x.level === 'suspension'
+                ? ` (${shortDate(x.starts_on)} to ${shortDate(x.ends_on ?? x.starts_on)})`
+                : x.level === 'ban'
+                  ? x.scope === 'all'
+                      ? ' at every branch'
+                      : ` at ${x.branch_name}`
+                  : ` at ${x.branch_name}`;
+        events.push({
+            oid: x.oid,
+            kind: 'discipline',
+            at: iso(x.created_at),
+            title: `${LEVEL[x.level] ?? x.level}${reach}`,
+            detail: x.reason,
+            by: x.given_by_name
+        });
+        if (x.overturned_at)
+            events.push({
+                oid: `${x.oid}-ot`,
+                kind: 'discipline',
+                at: iso(x.overturned_at),
+                title: 'Overturned on appeal',
+                detail: LEVEL[x.level] ?? null,
+                by: null
+            });
+        if (x.lifted_at)
+            events.push({ oid: `${x.oid}-lift`, kind: 'discipline', at: iso(x.lifted_at), title: 'Ban lifted', detail: x.lift_reason, by: x.lifted_by_name });
+    }
+    const accepted = await tx.query<{ oid: string; title: string; version: number; method: string; recorded_by_name: string | null; accepted_at: Date }>(sql`
+        select a.oid, p.title, a.version, a.method, a.recorded_by_name, a.accepted_at
+        from policy_acceptance a join policy p on p.oid = a.policy_oid where a.member_oid = ${member.oid}`);
+    for (const a of accepted) {
+        events.push({
+            oid: a.oid,
+            kind: 'policy',
+            at: iso(a.accepted_at),
+            title: `Accepted ${a.title} v${a.version}`,
+            detail: a.method === 'paper' ? 'Signed on paper at the desk' : 'Accepted in the member portal',
+            by: a.recorded_by_name
+        });
     }
     return events.sort((a, b) => (Date.parse(a.at) < Date.parse(b.at) ? 1 : -1));
 }

@@ -2,7 +2,7 @@ import request from 'supertest';
 
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { acrossBranches, rlsScoped } from '#src/testing/rls.ts';
-import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
+import { atBranch, createTestApp, signIn, stockUp, type TestApp } from '#src/testing/test-app.ts';
 
 import type { Queryable } from './db.ts';
 import { type Sql, sql } from './sql.ts';
@@ -20,6 +20,9 @@ const NO_RLS: Record<string, string> = {
     plan_template: 'HQ master data on the HQ row (D-023): every branch reads it, only HQ writes it (CASL)',
     promo: 'HQ master data on the HQ row (D-023): every branch reads it, only HQ writes it (CASL)',
     class_type: 'HQ master data on the HQ row (D-023, D-080): every branch reads it, only HQ writes it (CASL)',
+    policy: 'HQ master data on the HQ row (D-090): every branch and the public site read it, only HQ writes it (CASL)',
+    product: 'HQ master data on the HQ row (D-099): every branch reads the catalogue, only HQ writes it (CASL)',
+    supplier: 'HQ master data on the HQ row (D-099): branch managers read it for orders, only HQ writes it (CASL)',
     staff_assignment: 'identity: read at sign-in to build the branch context itself, before there is one'
 };
 
@@ -30,7 +33,14 @@ const READ_BY: Record<string, string[]> = {
     // A subscription sold elsewhere is seen by the member's home branch too (D-061).
     subscription: ['branch_oid', 'home_branch_oid'],
     // A transfer is seen by the branch it left and the one it went to.
-    member_transfer: ['from_branch_oid', 'to_branch_oid']
+    member_transfer: ['from_branch_oid', 'to_branch_oid'],
+    // A case, its steps and appeals are seen where it happened and by the member's home branch (D-092).
+    incident: ['branch_oid', 'member_branch_oid'],
+    sanction: ['branch_oid', 'member_branch_oid'],
+    appeal: ['branch_oid', 'member_branch_oid'],
+    // A stock transfer and its lines are seen by the branch that asked and the one that sends (D-101).
+    stock_transfer: ['to_branch_oid', 'from_branch_oid'],
+    stock_transfer_line: ['to_branch_oid', 'from_branch_oid']
 };
 
 /** Tables a policy reads (the probe role needs rights on them too): a trainer is seen where they are assigned (D-078). */
@@ -163,6 +173,76 @@ beforeAll(async () => {
             .send({ performed_on: '2026-11-19', day_index: 0, exercises: [{ exercise_oid: exercise.oid, sets: [{ reps: 10 }] }] })
             .expect(201);
         await request(t.app).post(`/api/v1/members/${member.oid}/measurements`).set(d).send({ measured_on: '2026-11-19', weight_kg: 70 }).expect(201);
+
+        // Phase 5 (D-090 to D-096): a paper acceptance, a case about the member with a step, a case about the desk with
+        // a step and the desk's appeal, a complaint with a reply; an NPS answer and a rating (fixtures: they need a
+        // portal sign-in and a class in the past).
+        await request(t.app).post(`/api/v1/members/${member.oid}/policies/accept`).set(d).send({}).expect(200);
+        const at = '2026-11-19T11:00:00+06:00';
+        const c = (
+            await request(t.app)
+                .post('/api/v1/incidents')
+                .set(m)
+                .send({ subject_kind: 'member', member_code: member.code, occurred_at: at, category: 'conduct', summary: 'Probe', description: 'Probe case' })
+                .expect(201)
+        ).body.data as { oid: string };
+        await request(t.app).post(`/api/v1/incidents/${c.oid}/sanctions`).set(m).send({ level: 'verbal', reason: 'Probe warning' }).expect(201);
+        const deskOid = (await t.ownerDb.query<{ oid: string }>(sql`select oid from app_user where username = ${desk}`))[0]!.oid;
+        const sc = (
+            await request(t.app)
+                .post('/api/v1/incidents')
+                .set(m)
+                .send({ subject_kind: 'staff', staff_oid: deskOid, occurred_at: at, category: 'attendance', summary: 'Late', description: 'Late for a shift' })
+                .expect(201)
+        ).body.data as { oid: string };
+        const step = (await request(t.app).post(`/api/v1/incidents/${sc.oid}/sanctions`).set(m).send({ level: 'verbal', reason: 'Be on time' }).expect(201))
+            .body.data as { sanctions: { oid: string }[] };
+        await request(t.app).post(`/api/v1/my-record/${step.sanctions[0]!.oid}/appeal`).set(d).send({ body: 'The bus broke down that day.' }).expect(201);
+        const cmp = (
+            await request(t.app)
+                .post('/api/v1/complaints')
+                .set(d)
+                .send({ member_oid: member.oid, category: 'facilities', subject: 'Probe', body: 'A probe complaint text.' })
+                .expect(201)
+        ).body.data as { oid: string };
+        await request(t.app).post(`/api/v1/complaints/${cmp.oid}/updates`).set(d).send({ body: 'On it' }).expect(200);
+        // Phase 6 (D-098 to D-102): stock in on a received order, an adjustment, equipment with a service and a
+        // ticket, a stock transfer asked of Uttara, and a POS sale with a return.
+        const hq = atBranch((await signIn(t.app, 'admin.hq', 'Admin@123')).access_token, HQ.oid);
+        await stockUp(t.app, m, hq, [{ code: 'PRD-000005', qty: 10, unit_cost: 110 }]);
+        const bar = ((await request(t.app).get('/api/v1/pos/products').set(d).expect(200)).body.data as { oid: string; code: string }[]).find(
+            p => p.code === 'PRD-000005'
+        )!.oid;
+        await request(t.app).post(`/api/v1/stock/${bar}/adjust`).set(m).send({ qty: -1, reason: 'damaged' }).expect(200);
+        const kit = (await request(t.app).post('/api/v1/equipment').set(m).send({ name: 'Probe bike', category: 'cardio' }).expect(201)).body.data as {
+            oid: string;
+        };
+        await request(t.app).post(`/api/v1/equipment/${kit.oid}/service`).set(m).send({ technician: 'Probe Tech' }).expect(201);
+        await request(t.app).post(`/api/v1/equipment/${kit.oid}/tickets`).set(d).send({ description: 'Probe squeak' }).expect(201);
+        await request(t.app)
+            .post('/api/v1/transfers')
+            .set(m)
+            .send({ from_branch_oid: UTT.oid, lines: [{ product_oid: bar, qty: 2 }] })
+            .expect(201);
+        const sale = (
+            await request(t.app)
+                .post('/api/v1/pos/sales')
+                .set(d)
+                .send({ lines: [{ product_oid: bar, qty: 2 }], payment: { method: 'bkash', amount: 414, reference: 'PROBE' } })
+                .expect(201)
+        ).body.data as { invoice: { oid: string } };
+        await request(t.app)
+            .post(`/api/v1/pos/sales/${sale.invoice.oid}/return`)
+            .set(d)
+            .send({ lines: [{ index: 0, qty: 1 }], method: 'bkash', reason: 'Probe return' })
+            .expect(200);
+
+        await acrossBranches(t.ownerDb, async tx => {
+            await tx.query(sql`insert into nps_response (branch_oid, member_oid, score) values (${branch.oid}, ${member.oid}, 9)`);
+            await tx.query(sql`
+                insert into rating (branch_oid, member_oid, member_name, kind, booking_oid, label, session_at, score)
+                select ${branch.oid}, ${member.oid}, 'Isolation Probe', 'class', k.oid, 'Probe', now(), 5 from booking k where k.member_oid = ${member.oid} limit 1`);
+        });
     }
 });
 afterAll(() => t.close());
@@ -187,7 +267,11 @@ describe('RLS covers every branch-scoped table', () => {
     ])('%s, reading every table with no filter, sees its own rows and none of the other branch’s', async (_name, own, other) => {
         for (const table of rlsTables) {
             const cols = READ_BY[table] ?? ['branch_oid'];
-            const mine = sql.join([...cols.map(c => sql`${ident(c)} = ${own.oid}`), ...(ALSO_HQ.has(table) ? [sql`branch_oid = ${HQ.oid}`] : [])], ' or ');
+            // Null-safe: a staff case has no member home branch.
+            const mine = sql.join(
+                [...cols.map(c => sql`${ident(c)} is not distinct from ${own.oid}::uuid`), ...(ALSO_HQ.has(table) ? [sql`branch_oid = ${HQ.oid}`] : [])],
+                ' or '
+            );
             const theirs = sql`not (${mine}) and ${ident(cols[0]!)} = ${other.oid}`;
             const count = async (db: Queryable, where: Sql) =>
                 (await db.query<{ n: number }>(sql`select count(*)::int as n from ${ident(table)} where ${where}`))[0]!.n;

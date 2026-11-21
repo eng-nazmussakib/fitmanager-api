@@ -4,7 +4,22 @@ export const fileParams = v.object({ oid: v.pipe(v.string(), v.uuid('Unknown fil
 
 /** `POST /v1/files`: what the browser is about to upload. The limits themselves are in files.service.ts (D-069). */
 export const startSchema = v.strictObject({
-    kind: v.picklist(['member_photo', 'member_document', 'trainer_photo', 'exercise_photo', 'exercise_video', 'measurement_photo'], 'Unknown kind of file'),
+    kind: v.picklist(
+        [
+            'member_photo',
+            'member_document',
+            'trainer_photo',
+            'exercise_photo',
+            'exercise_video',
+            'measurement_photo',
+            'incident_evidence',
+            'complaint_photo',
+            'product_photo',
+            'equipment_photo',
+            'ticket_photo'
+        ],
+        'Unknown kind of file'
+    ),
     /** The file's own name, shown in lists; never used as a path. */
     name: v.pipe(v.string(), v.trim(), v.minLength(1, 'Required'), v.maxLength(200)),
     content_type: v.pipe(v.string(), v.toLowerCase(), v.maxLength(100)),

@@ -40,12 +40,23 @@ export interface AuthUser {
     member_oid: string | null;
     /** Explicit rows, plus (with `all_branches`) the branches the user reaches through HQ. Active branches only. */
     assignments: StaffAssignment[];
+    /** A staff member's suspensions not overturned (D-093): sign-in is refused on their days (`suspendedUntil`). */
+    suspensions: { starts_on: string; ends_on: string }[];
+}
+
+/** The last day of a suspension in force on `today` (Dhaka), or null. */
+export function suspendedUntil(user: Pick<AuthUser, 'suspensions'>, today: string): string | null {
+    const now = user.suspensions.filter(s => s.starts_on <= today && today <= s.ends_on).map(s => s.ends_on);
+    return now.sort().at(-1) ?? null;
 }
 
 type UserRow = Omit<AuthUser, 'assignments'>;
 type UserRowWithHash = UserRow & { password_hash: string };
 
-const USER = sql.raw(`u.oid, u.username, u.name, u.email, u.kind, u.status, u.all_branches, u.must_change_password, u.member_oid from app_user u`);
+const USER = sql.raw(
+    `u.oid, u.username, u.name, u.email, u.kind, u.status, u.all_branches, u.must_change_password, u.member_oid,
+     case when u.kind = 'staff' then staff_suspensions(u.oid) else '[]'::jsonb end as suspensions from app_user u`
+);
 
 /**
  * A user's assignments at active branches, HQ first, then by branch name. With `all_branches`, every other active

@@ -1,10 +1,11 @@
 import type { Request, RequestHandler } from 'express';
 
 import type { AppDeps } from '#src/container.ts';
+import { dhakaNow, systemClock } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
 import { type Action, type AppAbility, createAbility, GLOBAL_RULES, type Subject } from './ability.ts';
-import { type AuthUser, type BranchKind, type StaffAssignment, users } from './auth.repo.ts';
+import { type AuthUser, type BranchKind, type StaffAssignment, suspendedUntil, users } from './auth.repo.ts';
 import type { Identity } from './tokens.ts';
 
 export interface AuthContext {
@@ -41,7 +42,7 @@ const USER_CACHE_SECONDS = 30;
  * Revocation is handled by the short access-token lifetime plus refresh-token revocation.
  */
 export function authenticate(
-    { db, cache, tokens }: Pick<AppDeps, 'db' | 'cache' | 'tokens'>,
+    { db, cache, tokens, clock = systemClock }: Pick<AppDeps, 'db' | 'cache' | 'tokens'> & Partial<Pick<AppDeps, 'clock'>>,
     opts: { /** The few routes a user with a temporary password may call (D-054): /auth/me, change-password, logout. */ beforePasswordChange?: boolean } = {}
 ): RequestHandler {
     return async (req, _res, next) => {
@@ -55,6 +56,8 @@ export function authenticate(
         }
         const user = await cache.getOrSet(`auth:user:${identity.userOid}`, () => users.findByOid(db, identity.userOid), USER_CACHE_SECONDS);
         if (user?.status !== 'Active') throw new AppError(401, 'This account is not active');
+        const until = suspendedUntil(user, dhakaNow(clock()).date);
+        if (until) throw new AppError(401, `This account is suspended until ${until}`);
         // A temporary password (new account or an admin reset) must be replaced before anything else works.
         if (user.must_change_password && !opts.beforePasswordChange)
             throw new AppError(403, 'Set a new password to continue', [{ path: PASSWORD_CHANGE_REQUIRED, message: 'Set a new password to continue' }]);

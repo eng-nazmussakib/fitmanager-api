@@ -2,7 +2,7 @@ import type { Queryable } from '#src/db/db.ts';
 import { type Sql, sql } from '#src/db/sql.ts';
 import { livePhoto } from '#src/features/files/files.repo.ts';
 
-export type MemberStatus = 'Active' | 'Expired' | 'Frozen' | 'Suspended' | 'Pending';
+export type MemberStatus = 'Active' | 'Expired' | 'Frozen' | 'Suspended' | 'Banned' | 'Pending';
 export type Gender = 'Male' | 'Female';
 
 export interface EmergencyContact {
@@ -31,7 +31,11 @@ export interface MemberRow {
     photo_file_oid: string | null;
     joined_on: string;
     pending: boolean;
-    suspended_reason: string | null;
+    /** The sanction behind a Suspended or Banned status (D-093): a suspension in force, or a ban covering the home branch. */
+    sanction_level: 'suspension' | 'ban' | null;
+    sanction_reason: string | null;
+    sanction_until: string | null;
+    sanction_branch: string | null;
     notes: string | null;
     anonymised: boolean;
     source: 'desk' | 'web';
@@ -52,18 +56,21 @@ export interface MemberRow {
 
 /**
  * One member's state, in SQL so lists filter, count and page in the database. "Relevant" subscription: the
- * current one, else the next upcoming, else the last. Status: Suspended → Pending → current (Frozen when a
- * freeze covers today, else Active) → upcoming (Active) → Expired. No grace period. Dues: what the member's
+ * current one, else the next upcoming, else the last. Status: Banned (a ban covering the home branch) → Suspended (a
+ * suspension in force, D-093) → Pending → current (Frozen when a freeze covers today, else Active) → upcoming
+ * (Active) → Expired. No grace period. Dues: what the member's
  * invoices at the branches in context still lack (payments minus refunds).
  */
 function memberState(today: string): Sql {
     return sql`
         select m.oid, m.branch_oid, b.code as branch_code, b.slug as branch_slug, b.name as branch_name, m.code, m.name, m.phone, m.gender,
             m.email, m.date_of_birth::text as date_of_birth, m.address, m.emergency_contact, m.health_flags, m.health_declared,
-            ${livePhoto('m.photo_file_oid')} as photo_file_oid, m.joined_on::text as joined_on, m.pending, m.suspended_reason, m.notes, m.anonymised_at is not null as anonymised,
+            ${livePhoto('m.photo_file_oid')} as photo_file_oid, m.joined_on::text as joined_on, m.pending, sx.level as sanction_level, sx.reason as sanction_reason,
+            sx.ends_on::text as sanction_until, sx.branch_name as sanction_branch, m.notes, m.anonymised_at is not null as anonymised,
             m.source,
             case
-                when m.suspended_at is not null then 'Suspended'
+                when sx.level = 'ban' then 'Banned'
+                when sx.level = 'suspension' then 'Suspended'
                 when m.pending then 'Pending'
                 when rel.is_current and rel.frozen_until is not null then 'Frozen'
                 when rel.is_current or rel.is_upcoming then 'Active'
@@ -102,7 +109,16 @@ function memberState(today: string): Sql {
                 from payment p where p.invoice_oid = i.oid) x
             where i.member_oid = m.oid
         ) d on true
-        left join lateral (select max(c.in_at) as last_visit from check_in c where c.member_oid = m.oid) lv on true`;
+        left join lateral (select max(c.in_at) as last_visit from check_in c where c.member_oid = m.oid) lv on true
+        left join lateral (
+            select x.level, x.reason, x.ends_on, xb.name as branch_name
+            from sanction x join branch xb on xb.oid = x.branch_oid
+            where x.member_oid = m.oid and x.overturned_at is null and x.lifted_at is null
+              and ((x.level = 'ban' and (x.scope = 'all' or x.branch_oid = m.branch_oid))
+                or (x.level = 'suspension' and x.starts_on <= ${today}::date and ${today}::date <= x.ends_on))
+            order by x.level = 'ban' desc, x.ends_on desc nulls first
+            limit 1
+        ) sx on true`;
 }
 
 export interface ListQuery {
@@ -241,8 +257,6 @@ export const MEMBER_COLUMNS = new Set([
     'photo_file_oid',
     'notes',
     'pending',
-    'suspended_at',
-    'suspended_reason',
     'anonymised_at',
     'branch_oid'
 ]);

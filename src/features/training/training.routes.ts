@@ -203,7 +203,7 @@ export function trainingRouter(deps: AppDeps): Router {
         ok(res, null, 'Measurement deleted');
     });
 
-    // A member's own progress photos, stored at their home branch and linked to them from the start.
+    // A member's own progress photos (and complaint photos), stored at their home branch and linked to them from the start.
     router.post('/v1/me/files', ...member, requireAbility('create', 'Portal'), async (req, res) => {
         const { ctx, memberOid } = await portal(req);
         const body = parse(portalFileStart, req.body);
@@ -212,7 +212,16 @@ export function trainingRouter(deps: AppDeps): Router {
     });
     router.post('/v1/me/files/:oid/complete', ...member, requireAbility('create', 'Portal'), async (req, res) => {
         const { ctx, memberOid } = await portal(req);
-        ok(res, await completeUpload(fileDeps, ctx, oid(req), (kind, file) => kind === 'measurement_photo' && file.member_oid === memberOid), 'File saved');
+        ok(
+            res,
+            await completeUpload(
+                fileDeps,
+                ctx,
+                oid(req),
+                (kind, file) => (kind === 'measurement_photo' || kind === 'complaint_photo') && file.member_oid === memberOid
+            ),
+            'File saved'
+        );
     });
 
     return router;

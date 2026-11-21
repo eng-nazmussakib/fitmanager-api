@@ -48,7 +48,8 @@ export interface SubscriptionRow {
 export interface PaymentRow {
     oid: string;
     invoice_oid: string;
-    member_oid: string;
+    /** Null on a walk-in POS sale (D-102). */
+    member_oid: string | null;
     kind: 'payment' | 'refund';
     amount: number;
     method: PaymentMethod;
@@ -66,14 +67,16 @@ export interface InvoiceRow {
     branch_code: string;
     branch_slug: string;
     branch_name: string;
-    member_oid: string;
+    /** Null on a walk-in POS sale (D-102): `member_code` is 'WALK-IN'. */
+    member_oid: string | null;
     subscription_oid: string | null;
     number: string;
-    kind: 'sale' | 'upgrade' | 'locker';
+    kind: 'sale' | 'upgrade' | 'locker' | 'pos';
     member_code: string;
     member_name: string;
     member_phone: string | null;
-    lines: { label: string; amount: number }[];
+    /** POS lines carry the product, quantity, unit price, VAT rate, discount and total too (D-102). */
+    lines: ({ label: string; amount: number } & Record<string, unknown>)[];
     subtotal: number;
     discount: number;
     discount_label: string | null;
@@ -181,7 +184,7 @@ export const salesRepo = {
         p: {
             branch_oid: string;
             invoice_oid: string;
-            member_oid: string;
+            member_oid: string | null;
             kind: 'payment' | 'refund';
             amount: number;
             method: PaymentMethod;
@@ -232,12 +235,13 @@ export const salesRepo = {
             group by p.method, p.received_by`),
 
     dayInvoices: async (tx: Queryable, branchOid: string, from: Date, to: Date) => {
-        const [row] = await tx.query<{ invoices: number; new_members: number; renewals: number }>(sql`
+        const [row] = await tx.query<{ invoices: number; new_members: number; renewals: number; pos_sales: number }>(sql`
             select count(*)::int as invoices,
                 count(*) filter (where i.lines @> '[{"label": "Admission fee"}]')::int as new_members,
-                count(*) filter (where not i.lines @> '[{"label": "Admission fee"}]')::int as renewals
+                count(*) filter (where i.kind <> 'pos' and not i.lines @> '[{"label": "Admission fee"}]')::int as renewals,
+                count(*) filter (where i.kind = 'pos')::int as pos_sales
             from invoice i where i.branch_oid = ${branchOid} and i.issued_at >= ${from} and i.issued_at < ${to}`);
-        return row ?? { invoices: 0, new_members: 0, renewals: 0 };
+        return row ?? { invoices: 0, new_members: 0, renewals: 0, pos_sales: 0 };
     },
 
     closings: (tx: Queryable, branchOid: string, day: string) =>

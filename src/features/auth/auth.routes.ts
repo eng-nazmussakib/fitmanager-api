@@ -3,7 +3,7 @@ import { ipKeyGenerator } from 'express-rate-limit';
 import * as v from 'valibot';
 
 import { GLOBAL_RULES } from '#src/auth/ability.ts';
-import { refreshTokens, type SessionMeta, users } from '#src/auth/auth.repo.ts';
+import { refreshTokens, type SessionMeta, suspendedUntil, users } from '#src/auth/auth.repo.ts';
 import { GUEST_LOCKED, guestAccounts, isGuest } from '#src/auth/guest.ts';
 import { authenticate, currentUser, forgetUser } from '#src/auth/middleware.ts';
 import { hashPassword, needsRehash, verifyAgainstDummy, verifyPassword } from '#src/auth/password.ts';
@@ -11,6 +11,7 @@ import { newPasswordSchema } from '#src/auth/password-policy.ts';
 import type { AppDeps } from '#src/container.ts';
 import { sql } from '#src/db/sql.ts';
 import { portalIdentity } from '#src/features/portal/portal.service.ts';
+import { dhakaNow, shortDate } from '#src/lib/clock.ts';
 import { AppError, ok, parse } from '#src/lib/http.ts';
 import { log } from '#src/lib/logger.ts';
 import { createLimiter } from '#src/lib/rate-limit.ts';
@@ -91,6 +92,8 @@ export function authRouter(deps: AppDeps): Router {
             throw new AppError(400, 'Invalid username or password');
         }
         if (user.status !== 'Active') throw new AppError(403, 'This account is not active');
+        const until = suspendedUntil(user, dhakaNow(deps.clock()).date);
+        if (until) throw new AppError(403, `This account is suspended until ${shortDate(until)}`);
         if (needsRehash(user.password_hash, config.auth.passwordHash))
             await users.setPasswordHash(db, user.oid, await hashPassword(body.password, config.auth.passwordHash));
 
@@ -123,7 +126,7 @@ export function authRouter(deps: AppDeps): Router {
         if (result.status === 'reused') log().warn({ user: result.userOid }, 'Refresh token reuse detected: session revoked');
         if (result.status !== 'ok') throw new AppError(401, 'Session expired. Please sign in again.');
         const user = await users.findByOid(db, result.userOid);
-        if (user?.status !== 'Active') throw new AppError(401, 'Session expired. Please sign in again.');
+        if (user?.status !== 'Active' || suspendedUntil(user, dhakaNow(deps.clock()).date)) throw new AppError(401, 'Session expired. Please sign in again.');
         ok(res, await issue(user, req, result), 'Token refreshed');
     });
 

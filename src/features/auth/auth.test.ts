@@ -55,7 +55,7 @@ describe('session', () => {
         ]);
         expect(assignments[0]!.rules).toContainEqual({
             action: ['read', 'create', 'update'],
-            subject: ['Member', 'Attendance', 'Booking', 'Locker', 'PtSession', 'Measurement']
+            subject: ['Member', 'Attendance', 'Booking', 'Locker', 'PtSession', 'Measurement', 'Complaint']
         });
     });
 

@@ -58,6 +58,39 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         maxBytes: 300 * 1024,
         perMember: 0,
         label: 'A progress photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    // Phase 5 (D-094): photos resized in the browser like other photos, or a PDF (a written statement). No video.
+    incident_evidence: {
+        types: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
+        maxBytes: 2 * 1024 * 1024,
+        perMember: 0,
+        label: 'Evidence is a photo (JPEG, PNG or WebP) or a PDF of at most 2 MB'
+    },
+    // Phase 5 (D-095): one photo on a complaint, resized in the browser.
+    complaint_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'A complaint photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    // Phase 6 (D-098, D-099): resized in the browser to 800 px, like exercise photos. Product photos are HQ's.
+    product_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'A product photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    equipment_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'An equipment photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    ticket_photo: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 300 * 1024,
+        perMember: 0,
+        label: 'A ticket photo is a JPEG, PNG or WebP of at most 300 KB'
     }
 };
 

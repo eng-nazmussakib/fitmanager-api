@@ -147,3 +147,118 @@ export const bearer = (token: string): [string, string] => ['Authorization', `Be
 
 /** Headers for a staff request at one branch: `.set(atBranch(token, DEMO_BRANCHES.GUL.oid))`. */
 export const atBranch = (token: string, branchOid: string): Record<string, string> => ({ Authorization: `Bearer ${token}`, [BRANCH_HEADER]: branchOid });
+
+/**
+ * Suspends a member (phase 5, D-093) the way a manager does: an incident at the manager's branch, then a suspension
+ * step on it (the suggested step for a first case is a verbal warning, so the choice is explained). `days` long,
+ * from today. Returns the incident.
+ */
+export async function suspendMember(
+    app: Express,
+    manager: Record<string, string>,
+    code: string,
+    opts: { days?: number; reason?: string; today: string; now: string }
+): Promise<{ oid: string }> {
+    const incident = (
+        await request(app)
+            .post('/api/v1/incidents')
+            .set(manager)
+            .send({
+                subject_kind: 'member',
+                member_code: code,
+                occurred_at: opts.now,
+                category: 'conduct',
+                summary: 'Behaviour at the gym',
+                description: 'Shouted at the desk.'
+            })
+            .expect(201)
+    ).body.data as { oid: string };
+    const end = new Date(`${opts.today}T00:00:00Z`);
+    end.setUTCDate(end.getUTCDate() + (opts.days ?? 7) - 1);
+    await request(app)
+        .post(`/api/v1/incidents/${incident.oid}/sanctions`)
+        .set(manager)
+        .send({ level: 'suspension', reason: opts.reason ?? 'Abusive behaviour', choice_reason: 'Serious first case', ends_on: end.toISOString().slice(0, 10) })
+        .expect(201);
+    return incident;
+}
+
+/**
+ * A new member of the desk's branch with a paid monthly plan and a portal account, signed in: `{ oid, code, me }`,
+ * `me` being the member's headers. `phone` must be unused (`0191…`, 11 digits).
+ */
+export async function portalMember(
+    app: Express,
+    desk: Record<string, string>,
+    phone: string,
+    opts: { name?: string; policies_signed?: boolean; plan?: string } = {}
+): Promise<{ oid: string; code: string; me: Record<string, string> }> {
+    const m = (
+        await request(app)
+            .post('/api/v1/members')
+            .set(desk)
+            .send({
+                name: opts.name ?? 'Portal Member',
+                phone,
+                gender: 'Female',
+                health_flags: [],
+                health_declared: true,
+                policies_signed: opts.policies_signed ?? true
+            })
+            .expect(201)
+    ).body.data as { oid: string; code: string };
+    const plans = (await request(app).get('/api/v1/plans').set(desk).expect(200)).body.data as { oid: string; code: string }[];
+    const plan =
+        plans.find(p => p.code.endsWith(opts.plan ?? '-SIN-1M') && p.code.startsWith('GUL')) ?? plans.find(p => p.code.endsWith(opts.plan ?? '-SIN-1M'));
+    const sale = await request(app)
+        .post('/api/v1/subscriptions')
+        .set(desk)
+        .send({ member_oid: m.oid, plan_oid: plan?.oid, charge_admission: false })
+        .expect(201);
+    await request(app)
+        .post('/api/v1/payments')
+        .set(desk)
+        .send({ invoice_oid: sale.body.data.invoice.oid, method: 'cash', amount: sale.body.data.invoice.total })
+        .expect(200);
+    await request(app).post(`/api/v1/members/${m.oid}/portal-access`).set(desk).send({ password: 'Temp1234' }).expect(200);
+    const temp = (await request(app).post('/api/v1/auth/login').send({ username: m.code, password: 'Temp1234' }).expect(200)).body.data.access_token as string;
+    await request(app)
+        .post('/api/v1/auth/change-password')
+        .set('Authorization', `Bearer ${temp}`)
+        .send({ current_password: 'Temp1234', new_password: 'Mine5678x' })
+        .expect(200);
+    const token = (await request(app).post('/api/v1/auth/login').send({ username: m.code, password: 'Mine5678x' }).expect(200)).body.data
+        .access_token as string;
+    return { ...m, me: { Authorization: `Bearer ${token}` } };
+}
+
+/**
+ * Stocks a branch (phase 6, D-100) the way it happens: the manager raises a purchase order, HQ approves it, and it
+ * is received in one delivery. `lines` name products by code (`PRD-000001`). Returns the order.
+ */
+export async function stockUp(
+    app: Express,
+    manager: Record<string, string>,
+    hq: Record<string, string>,
+    lines: { code: string; qty: number; unit_cost: number }[]
+): Promise<{ oid: string; code: string }> {
+    const products = (await request(app).get('/api/v1/products').set(manager).expect(200)).body.data as { oid: string; code: string }[];
+    const suppliers = (await request(app).get('/api/v1/suppliers').set(manager).expect(200)).body.data as { oid: string }[];
+    const po = (
+        await request(app)
+            .post('/api/v1/purchase-orders')
+            .set(manager)
+            .send({
+                supplier_oid: suppliers[0]?.oid,
+                lines: lines.map(l => ({ product_oid: products.find(p => p.code === l.code)?.oid, qty: l.qty, unit_cost: l.unit_cost }))
+            })
+            .expect(201)
+    ).body.data as { oid: string; code: string; lines: { oid: string; qty: number }[] };
+    await request(app).post(`/api/v1/hq/purchase-orders/${po.oid}/approve`).set(hq).send({}).expect(200);
+    await request(app)
+        .post(`/api/v1/purchase-orders/${po.oid}/deliveries`)
+        .set(manager)
+        .send({ lines: po.lines.map(l => ({ line_oid: l.oid, qty: l.qty })) })
+        .expect(201);
+    return po;
+}

@@ -129,7 +129,7 @@ export function invoiceWire(i: InvoiceRow, payments: PaymentRow[]) {
     };
 }
 
-async function invoiceOut(tx: Queryable, oid: string, branchOids: readonly string[]) {
+export async function invoiceOut(tx: Queryable, oid: string, branchOids: readonly string[]) {
     const inv = await salesRepo.invoice(tx, oid, branchOids);
     if (!inv) throw new AppError(404, 'Invoice not found');
     return invoiceWire(inv, await salesRepo.payments(tx, [inv.oid]));
@@ -137,7 +137,7 @@ async function invoiceOut(tx: Queryable, oid: string, branchOids: readonly strin
 
 /* ---------- quote and sale ---------- */
 
-function checkPayment(pay: PaymentInput, max: number, min = 0): void {
+export function checkPayment(pay: PaymentInput, max: number, min = 0): void {
     if (!METHODS.includes(pay.method)) throw new AppError(400, 'Choose a payment method', [{ path: 'payment.method', message: 'Unknown method' }]);
     if (pay.amount < min || pay.amount > max)
         throw new AppError(400, `The payment must be between ${taka(min)} and ${taka(max)}.`, [{ path: 'payment.amount', message: 'Out of range' }]);
@@ -194,15 +194,24 @@ export async function quoteSale(db: Db, ctx: BranchContext, now: DhakaNow, input
     return withBranchTx(db, ctx, async tx => (await price(tx, ctx, now, input, canDiscount)).quote);
 }
 
-async function newInvoice(
+/** What an invoice is made from: a plan's quote, or a POS sale's (pos-pricing.ts). */
+export type InvoiceDraft = Pick<Quote, 'subtotal' | 'discount' | 'discount_label' | 'vat_rate' | 'vat_inclusive' | 'vat' | 'total'> & {
+    lines: ({ label: string; amount: number } & Record<string, unknown>)[];
+};
+
+/**
+ * Numbers and writes an invoice at the context's branch (INV-GUL-2026-00001). `member.oid` is null for a walk-in POS
+ * sale (D-102). For other features in the same transaction (POS); the caller audits it.
+ */
+export async function newInvoice(
     tx: Queryable,
     ctx: BranchContext,
     now: DhakaNow,
-    member: { oid: string; code: string; name: string; phone: string | null },
-    q: Quote,
+    member: { oid: string | null; code: string; name: string; phone: string | null },
+    q: InvoiceDraft,
     vatBin: string | null,
     subscriptionOid: string | null,
-    kind: 'sale' | 'upgrade' | 'locker'
+    kind: 'sale' | 'upgrade' | 'locker' | 'pos'
 ) {
     const [branch] = await tx.query<{ code: string }>(sql`select code from branch where oid = ${ctx.branchOid}`);
     const year = now.date.slice(0, 4);
@@ -236,7 +245,7 @@ async function newInvoice(
     );
 }
 
-async function receipt(
+export async function receipt(
     tx: Queryable,
     ctx: BranchContext,
     member: { oid: string; code: string; name: string; email: string | null; phone: string | null },
@@ -260,7 +269,8 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
     const actor = actorOf(ctx);
     return withBranchTx(db, ctx, async tx => {
         const { quote: q, plan, member, subs, start } = await price(tx, ctx, now, input, canDiscount);
-        if (member.status === 'Suspended') throw new AppError(409, 'This member is suspended. A manager must lift the suspension first.');
+        if (member.status === 'Suspended') throw new AppError(409, 'This member is suspended. Sell after the suspension ends.');
+        if (member.status === 'Banned') throw new AppError(409, 'This member is banned from their home branch.');
         if (member.anonymised) throw new AppError(409, 'This member was anonymised');
         if (q.promo_error) throw new AppError(400, q.promo_error, [{ path: 'discount.code', message: q.promo_error }]);
         checkPayment(payment, q.total);
@@ -478,7 +488,8 @@ export async function upgradeSubscription(db: Db, ctx: BranchContext, now: Dhaka
         const { sub, member } = await homeSubscription(tx, ctx, oid, now.date);
         if (sub.branch_oid !== ctx.branchOid) throw new AppError(409, 'Upgrade at the branch that sold the plan.');
         if (subscriptionStatus(sub, now.date) !== 'Active') throw new AppError(409, 'Only a running plan can be upgraded.');
-        if (member.status === 'Suspended') throw new AppError(409, 'This member is suspended. A manager must lift the suspension first.');
+        if (member.status === 'Suspended') throw new AppError(409, 'This member is suspended. Sell after the suspension ends.');
+        if (member.status === 'Banned') throw new AppError(409, 'This member is banned from their home branch.');
         const plan = await sellablePlan(tx, ctx.branchOid, planOid);
         if (sub.kind !== 'membership' || plan.kind !== 'membership') throw new AppError(409, 'Only a membership is upgraded, to another membership.');
         if (plan.oid === sub.plan_oid) throw new AppError(400, 'That is the plan the member already has.', [{ path: 'plan_oid', message: 'Same plan' }]);
@@ -601,7 +612,7 @@ export async function payInvoice(db: Db, ctx: BranchContext, now: DhakaNow, invo
             before: { paid: inv.paid - inv.refunded, due },
             after: { paid: after.paid, due: after.due, payment: paymentOid }
         });
-        const member = await memberAt(tx, ctx, inv.member_oid, now.date).catch(() => null);
+        const member = inv.member_oid ? await memberAt(tx, ctx, inv.member_oid, now.date).catch(() => null) : null;
         if (member) await receipt(tx, ctx, member, inv.oid, paymentOid, payment.amount, inv.number);
         return after;
     });
@@ -624,6 +635,8 @@ export async function refundInvoice(
     return withBranchTx(db, ctx, async tx => {
         const inv = await salesRepo.invoice(tx, invoiceOid, [ctx.branchOid], true);
         if (!inv) throw new AppError(404, 'Invoice not found');
+        // A POS sale's money goes back with its items (POST /v1/pos/sales/:oid/return), so the stock moves too.
+        if (inv.kind === 'pos') throw new AppError(409, 'Return the items on this sale from the POS sales list.');
         const net = inv.paid - inv.refunded;
         if (net <= 0) throw new AppError(409, 'Nothing has been paid on this invoice.');
         const amount = input.amount ?? net;
@@ -631,7 +644,7 @@ export async function refundInvoice(
         if (!METHODS.includes(input.method)) throw new AppError(400, 'Choose how the money goes back', [{ path: 'method', message: 'Unknown method' }]);
         const full = amount === net;
         const withinWindow = daysBetween(new Date(inv.issued_at.getTime() + 6 * 3600_000).toISOString().slice(0, 10), now.date) <= REFUND_WINDOW_DAYS;
-        const unused = !(await salesRepo.visitedSince(tx, inv.member_oid, inv.issued_at));
+        const unused = inv.member_oid === null || !(await salesRepo.visitedSince(tx, inv.member_oid, inv.issued_at));
         const policy = full && withinWindow && unused;
         if (!policy && !isManager) {
             throw new AppError(
@@ -715,6 +728,42 @@ export async function recentPayments(db: Db, ctx: BranchContext) {
     });
 }
 
+/**
+ * Payments and refunds at the branch in a range of Dhaka days, oldest first, a page at a time (exports, D-107).
+ * `after` is the last row's `[received_at, oid]`; the first page also counts the rows.
+ */
+export async function paymentsPage(db: Db, ctx: BranchContext, range: { from: string; to: string }, after: [string, string] | null, limit: number) {
+    const from = dhakaInstant(range.from);
+    const to = dhakaInstant(addDays(range.to, 1));
+    return withBranchTx(db, ctx, async tx => {
+        const rows = await tx.query<{
+            oid: string;
+            received_at: string;
+            invoice_number: string;
+            member_code: string;
+            member_name: string;
+            kind: string;
+            method: string;
+            reference: string | null;
+            reason: string | null;
+            amount: number;
+            received_by: string | null;
+        }>(sql`
+            select p.oid::text, p.received_at::text as received_at, i.number as invoice_number, i.member_code, i.member_name, p.kind, p.method,
+                   p.reference, p.reason, p.amount::float8 as amount, u.name as received_by
+            from payment p join invoice i on i.oid = p.invoice_oid left join app_user u on u.oid = p.received_by
+            where p.branch_oid = ${ctx.branchOid} and p.received_at >= ${from} and p.received_at < ${to}
+              ${after ? sql`and (p.received_at, p.oid) > (${after[0]}::timestamptz, ${after[1]}::uuid)` : sql.raw('')}
+            order by p.received_at, p.oid
+            limit ${limit}`);
+        const [total] = after
+            ? [null]
+            : await tx.query<{ n: number }>(sql`
+                  select count(*)::int as n from payment where branch_oid = ${ctx.branchOid} and received_at >= ${from} and received_at < ${to}`);
+        return { rows, total: total?.n ?? null };
+    });
+}
+
 /* ---------- cash closing ---------- */
 
 export async function cashClosing(db: Db, ctx: BranchContext, now: DhakaNow) {
@@ -744,6 +793,7 @@ export async function cashClosing(db: Db, ctx: BranchContext, now: DhakaNow) {
             invoices: counts.invoices,
             new_members: counts.new_members,
             renewals: counts.renewals,
+            pos_sales: counts.pos_sales,
             by_staff: [...staff.values()].map(s => {
                 const closed = closings.find(c => c.staff_oid === s.staff_oid);
                 return {

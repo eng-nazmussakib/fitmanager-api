@@ -4,7 +4,7 @@ import { sql } from '#src/db/sql.ts';
 import { systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { rlsScoped } from '#src/testing/rls.ts';
-import { atBranch, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
+import { atBranch, createTestApp, signIn, suspendMember, type TestApp } from '#src/testing/test-app.ts';
 
 const { GUL, DHA, UTT } = DEMO_BRANCHES;
 let now = new Date('2026-11-19T12:00:00Z'); // Thursday 18:00 in Dhaka
@@ -118,8 +118,7 @@ describe('evaluate and check in (D-059, D-061)', () => {
     });
 
     it('override: only a manager, only overridable blocks, with a reason; written with the reason', async () => {
-        const m = await member();
-        await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: 'Card left at desk' }).expect(200);
+        const m = await member({ pay: 0 });
         await request(t.app).post('/api/v1/attendance/check-in').set(desk).send({ code: m.code }).expect(409);
         await request(t.app)
             .post('/api/v1/attendance/check-in')
@@ -134,12 +133,36 @@ describe('evaluate and check in (D-059, D-061)', () => {
         const ci = await request(t.app)
             .post('/api/v1/attendance/check-in')
             .set(manager)
-            .send({ code: m.code, override: { reason: 'Lifting it tomorrow' } })
+            .send({ code: m.code, override: { reason: 'Paying tomorrow' } })
             .expect(201);
         expect(ci.body).toMatchObject({
             message: 'Visit Tester checked in with an override',
-            data: { override: { reason: 'Lifting it tomorrow', by: 'Ashraf Siddique' } }
+            data: { override: { reason: 'Paying tomorrow', by: 'Ashraf Siddique' } }
         });
+    });
+
+    it('a suspension blocks every branch and is not overridden (D-093); the membership keeps running', async () => {
+        const m = await member();
+        await suspendMember(t.app, manager, m.code, { today: '2026-11-19', now: '2026-11-19T11:00:00+06:00', reason: 'Card lent to a friend' });
+        for (const [at, who] of [
+            [desk, 'own'],
+            [deskDha, 'visited']
+        ] as const) {
+            const ev = (await request(t.app).post('/api/v1/attendance/evaluate').set(at).send({ code: m.code }).expect(200)).body.data as {
+                failures: { rule: string }[];
+                can_override: boolean;
+            };
+            expect([who, ev.failures.map(f => f.rule)]).toEqual([who, ['suspended']]);
+            expect(ev.can_override).toBe(false);
+        }
+        const refused = await request(t.app)
+            .post('/api/v1/attendance/check-in')
+            .set(manager)
+            .send({ code: m.code, override: { reason: 'Lifting it tomorrow' } })
+            .expect(409);
+        expect(refused.body.message).toMatch(/cannot be overridden: Suspended until 25 Nov 2026 \(Gulshan\): Card lent to a friend/);
+        const detail = (await request(t.app).get(`/api/v1/members/${m.oid}`).set(desk).expect(200)).body.data;
+        expect(detail).toMatchObject({ status: 'Suspended', valid_until: '2026-12-18', sanction: { level: 'suspension', until: '2026-11-25' } });
     });
 });
 

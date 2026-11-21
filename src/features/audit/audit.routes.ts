@@ -47,7 +47,8 @@ const filterEntries = {
 };
 const branchObject = v.strictObject(filterEntries);
 const hqObject = v.strictObject({ ...filterEntries, branch_oid: v.optional(UUID('Unknown branch')) });
-type Query = v.InferOutput<typeof hqObject>;
+export type AuditQuery = v.InferOutput<typeof hqObject>;
+type Query = AuditQuery;
 const RANGE = '`from` must not be after `to`';
 const inRange = (q: Query) => !q.from || !q.to || q.from <= q.to;
 const branchQuery = v.pipe(branchObject, v.check(inRange, RANGE));
@@ -68,9 +69,9 @@ function decodeCursor(cursor: string): [string, string] {
     throw new AppError(400, 'Invalid page cursor', [{ path: 'before', message: 'Invalid page cursor' }]);
 }
 
-async function readAudit(deps: AppDeps, ctx: BranchContext, branchOids: readonly string[], q: Query) {
+function auditFilter(branchOids: readonly string[], q: Query) {
     const cursor = q.before ? decodeCursor(q.before) : null;
-    const filter = sql.where([
+    return sql.where([
         sql`a.branch_oid = any (${`{${branchOids.join(',')}}`}::uuid[])`,
         q.actor_oid !== undefined && sql`a.actor_oid = ${q.actor_oid}`,
         q.action !== undefined && sql`a.action = ${q.action}`,
@@ -80,6 +81,11 @@ async function readAudit(deps: AppDeps, ctx: BranchContext, branchOids: readonly
         q.to !== undefined && sql`a.created_at < (${q.to}::date + 1)::timestamp at time zone 'Asia/Dhaka'`,
         cursor !== null && sql`(a.created_at, a.oid) < (${cursor[0]}::timestamptz, ${cursor[1]}::uuid)`
     ]);
+}
+
+/** The audit log, newest first, a page at a time (the screens; exports page through it, D-107). */
+export async function readAudit(deps: Pick<AppDeps, 'db'>, ctx: BranchContext, branchOids: readonly string[], q: Query) {
+    const filter = auditFilter(branchOids, q);
     const rows = await withBranchTx(deps.db, ctx, tx =>
         tx.query<AuditRow & { cursor_at: string }>(sql`
             select a.oid, a.branch_oid, b.code as branch_code, b.name as branch_name, a.actor_oid, a.actor_name,
@@ -97,6 +103,16 @@ async function readAudit(deps: AppDeps, ctx: BranchContext, branchOids: readonly
         next: rows.length > q.limit && last ? encodeCursor(last.cursor_at, last.oid) : null
     };
 }
+
+/** How many audit rows match (the export's 50 000-row cap). */
+export async function countAudit(deps: Pick<AppDeps, 'db'>, ctx: BranchContext, branchOids: readonly string[], q: Query) {
+    const filter = auditFilter(branchOids, { ...q, before: undefined });
+    const [row] = await withBranchTx(deps.db, ctx, tx => tx.query<{ n: number }>(sql`select count(*)::int as n from audit_log a where ${filter}`));
+    return row?.n ?? 0;
+}
+
+/** The filters of `GET /v1/branch/audit` (and the HQ one), for an export's body. */
+export const auditFilters = v.strictObject({ ...filterEntries, branch_oid: v.optional(UUID('Unknown branch')) });
 
 export function auditRouter(deps: AppDeps): Router {
     const router = Router();

@@ -34,8 +34,20 @@ interface Facts {
     branch_name: string;
     dues_limit: number;
     pending: boolean;
-    suspended: boolean;
+    joined_on: string;
     dues: number;
+    /** Suspensions and bans not overturned or lifted, anywhere (migration 020). */
+    sanctions: {
+        level: 'suspension' | 'ban';
+        starts_on: string;
+        ends_on: string | null;
+        scope: 'branch' | 'all' | null;
+        branch_oid: string;
+        branch_name: string;
+        reason: string;
+    }[];
+    /** Required policies not accepted, with the first day each blocks (D-091). */
+    policies: { title: string; version: number; blocks_on: string }[];
     subscriptions: { start_date: string; end_date: string; freezes: { from: string; to: string }[]; cancelled: boolean }[];
     /** `yyyy-MM-ddTHH:mm` in Dhaka, of an open visit anywhere. */
     open_check_in: string | null;
@@ -67,13 +79,28 @@ function stateOf(f: Facts, today: string) {
     const upcoming = subs.filter(s => s.start_date > today).sort((a, b) => (a.start_date < b.start_date ? -1 : 1))[0] ?? null;
     const relevant = current ?? upcoming ?? [...subs].sort((a, b) => (a.end_date < b.end_date ? 1 : -1))[0] ?? null;
     const frozen = current?.freezes.some(z => z.from <= today && today <= z.to) ?? false;
-    const status: MemberStatus = f.suspended ? 'Suspended' : f.pending ? 'Pending' : current ? (frozen ? 'Frozen' : 'Active') : upcoming ? 'Active' : 'Expired';
+    const banned = f.sanctions.some(x => x.level === 'ban' && (x.scope === 'all' || x.branch_oid === f.branch_oid));
+    const suspended = f.sanctions.some(x => x.level === 'suspension' && x.starts_on <= today && x.ends_on !== null && today <= x.ends_on);
+    const status: MemberStatus = banned
+        ? 'Banned'
+        : suspended
+          ? 'Suspended'
+          : f.pending
+            ? 'Pending'
+            : current
+              ? frozen
+                  ? 'Frozen'
+                  : 'Active'
+              : upcoming
+                ? 'Active'
+                : 'Expired';
     return { status, relevant };
 }
 
 export interface Decision {
     allowed: boolean;
     failures: RuleFailure[];
+    policies_due: { title: string; blocks_on: string }[];
     member: {
         oid: string;
         code: string;
@@ -99,7 +126,10 @@ async function decide(deps: AttendanceDeps, tx: Queryable, ctx: BranchContext, n
             member: { status, dues: f.dues, home_branch_name: f.branch_name, dues_limit: f.dues_limit },
             subscription: relevant,
             branch: { name: branch.name, hours: branch.hours },
-            open_check_in: f.open_check_in ? { branch_name: f.open_check_in_branch ?? 'another branch', time: f.open_check_in.slice(11, 16) } : null
+            open_check_in: f.open_check_in ? { branch_name: f.open_check_in_branch ?? 'another branch', time: f.open_check_in.slice(11, 16) } : null,
+            // Bans only where they reach: this branch, or every branch (D-093).
+            sanctions: f.sanctions.filter(x => x.level === 'suspension' || x.scope === 'all' || x.branch_oid === ctx.branchOid),
+            policies: f.policies
         },
         now
     );
@@ -113,6 +143,8 @@ async function decide(deps: AttendanceDeps, tx: Queryable, ctx: BranchContext, n
     return {
         allowed: failures.length === 0,
         failures,
+        // Due but not blocking yet (D-091): the desk asks the member to sign.
+        policies_due: f.policies.filter(p => p.blocks_on > now.date).map(p => ({ title: p.title, blocks_on: p.blocks_on })),
         member: {
             oid: f.oid,
             code: f.code,

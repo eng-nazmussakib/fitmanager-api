@@ -61,7 +61,13 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
         // The booking rules (D-081): whole numbers in range.
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ booking_cancel_hours: 4, noshow_limit: 5 }).expect(200);
         expect(await settings()).toMatchObject({ booking_cancel_hours: 4, noshow_limit: 5, booking_open_days: 7 });
-        for (const body of [{ booking_open_days: 0 }, { booking_cancel_hours: 73 }, { noshow_block_days: 1.5 }])
+        for (const body of [
+            { booking_open_days: 0 },
+            { booking_cancel_hours: 73 },
+            { noshow_block_days: 1.5 },
+            { policy_grace_days: 91 },
+            { complaint_response_hours: 0 }
+        ])
             await request(t.app).patch('/api/v1/hq/settings').set(owner).send(body).expect(400);
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ booking_cancel_hours: 2, noshow_limit: 3 }).expect(200);
     });
@@ -86,7 +92,9 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
             booking_cancel_hours: 2,
             noshow_limit: 3,
             noshow_window_days: 30,
-            noshow_block_days: 7
+            noshow_block_days: 7,
+            policy_grace_days: 14,
+            complaint_response_hours: 48
         });
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ vat_rate: 0.15, vat_bin: '', vat_inclusive: false }).expect(200);
         expect(await settings()).toMatchObject({ vat_rate: 0.15, vat_bin: null, vat_inclusive: false });
@@ -114,7 +122,9 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
             booking_cancel_hours: 2,
             noshow_limit: 3,
             noshow_window_days: 30,
-            noshow_block_days: 7
+            noshow_block_days: 7,
+            policy_grace_days: 14,
+            complaint_response_hours: 48
         });
         await request(t.app).get('/api/v1/rules').expect(401);
     });

@@ -61,9 +61,10 @@ export const REMINDER_DAYS = [
 /**
  * Writes the member's expiry reminders that have fallen due by `now` and are not written yet (D-075: no nightly
  * job; this runs when the member's messages are read, so the list is the same as if a job had run every night).
- * A reminder is for a plan that is not cancelled, whose member is not anonymised or suspended, and that was not
- * renewed by then (no later plan that starts after it). Each is dated its due day at 00:05 Dhaka. Returns how many
- * were written.
+ * A reminder is for a plan that is not cancelled (a ban covering the home branch cancels it, D-093), whose member is
+ * not anonymised, and that was not renewed by then (no later plan that starts after it). A suspension does not stop
+ * the plan, so it does not stop the reminders. Each is dated its due day at 00:05 Dhaka. Returns how many were
+ * written.
  */
 export async function writeDueReminders(tx: Queryable, memberOid: string, now: Date): Promise<number> {
     const today = dhakaNow(now).date;
@@ -80,7 +81,7 @@ export async function writeDueReminders(tx: Queryable, memberOid: string, now: D
         select s.oid, s.home_branch_oid, s.plan_name, s.end_date::text as end_date, m.code, m.name, m.email, m.phone
         from subscription s join member m on m.oid = s.member_oid
         where s.member_oid = ${memberOid} and s.kind = 'membership' and s.end_date - 7 <= ${today}::date and s.end_date >= ${addDays(today, -400)}::date
-          and s.cancelled_at is null and m.anonymised_at is null and m.suspended_at is null
+          and s.cancelled_at is null and m.anonymised_at is null
           and not exists (select 1 from subscription n where n.member_oid = s.member_oid and n.kind = 'membership' and n.start_date > s.end_date and n.cancelled_at is null)`);
     let written = 0;
     for (const s of subs) {

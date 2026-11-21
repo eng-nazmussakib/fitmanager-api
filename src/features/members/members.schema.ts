@@ -64,7 +64,12 @@ const fields = {
 
 /** `POST /v1/members`: the desk adds a member; the health declaration must be signed (mock rule). */
 export const createSchema = v.pipe(
-    v.strictObject({ ...fields, gender: v.optional(fields.gender, 'Male') }),
+    v.strictObject({
+        ...fields,
+        gender: v.optional(fields.gender, 'Male'),
+        /** The member signed the current policies on paper at the desk (D-090): recorded as accepted. */
+        policies_signed: v.optional(v.boolean())
+    }),
     v.check(b => b.health_declared, 'The member must sign the health declaration')
 );
 export type MemberCreate = v.InferOutput<typeof createSchema>;

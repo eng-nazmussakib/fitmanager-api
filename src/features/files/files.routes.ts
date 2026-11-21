@@ -22,7 +22,13 @@ const KIND_RULES: Record<FileKind, { write: [Action, Subject]; read: [Action, Su
     trainer_photo: { write: ['update', 'Trainer'], read: ['read', 'Trainer'], remove: ['update', 'Trainer'], hq: false },
     exercise_photo: { write: ['create', 'Exercise'], read: ['read', 'Exercise'], remove: ['update', 'Exercise'], hq: true },
     exercise_video: { write: ['create', 'Exercise'], read: ['read', 'Exercise'], remove: ['update', 'Exercise'], hq: true },
-    measurement_photo: { write: ['create', 'Measurement'], read: ['read', 'Measurement'], remove: ['update', 'Measurement'], hq: false }
+    measurement_photo: { write: ['create', 'Measurement'], read: ['read', 'Measurement'], remove: ['update', 'Measurement'], hq: false },
+    incident_evidence: { write: ['create', 'Incident'], read: ['read', 'Incident'], remove: ['manage', 'Incident'], hq: false },
+    complaint_photo: { write: ['create', 'Complaint'], read: ['read', 'Complaint'], remove: ['update', 'Complaint'], hq: false },
+    // Phase 6: product photos at HQ (the catalogue), equipment and ticket photos at a branch.
+    product_photo: { write: ['update', 'Product'], read: ['read', 'Product'], remove: ['update', 'Product'], hq: true },
+    equipment_photo: { write: ['update', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false },
+    ticket_photo: { write: ['create', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false }
 };
 
 /**

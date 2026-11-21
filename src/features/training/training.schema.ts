@@ -188,7 +188,8 @@ export type MeasurementCreate = v.InferOutput<typeof measurementCreate>;
 
 /** `POST /v1/me/files`: a member's own progress photo (the staff route is `/v1/files`). */
 export const portalFileStart = v.strictObject({
-    kind: v.literal('measurement_photo', 'Only progress photos'),
+    // Progress photos (phase 4) and a complaint's photo (phase 5, D-095).
+    kind: v.picklist(['measurement_photo', 'complaint_photo'], 'Only progress or complaint photos'),
     name: v.pipe(v.string(), v.trim(), v.minLength(1, 'Required'), v.maxLength(200)),
     content_type: v.pipe(v.string(), v.toLowerCase(), v.maxLength(100)),
     size: v.pipe(v.number(), v.integer('Bytes'), v.minValue(1, 'The file is empty'))

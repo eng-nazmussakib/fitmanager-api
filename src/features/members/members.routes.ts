@@ -9,7 +9,7 @@ import { notificationsRepo } from '#src/features/notifications/notifications.ser
 import { dhakaNow } from '#src/lib/clock.ts';
 import { ok, parse } from '#src/lib/http.ts';
 
-import { anonymiseSchema, createSchema, listQuery, lookupQuery, oidParams, reasonSchema, transferSchema, updateSchema } from './members.schema.ts';
+import { anonymiseSchema, createSchema, listQuery, lookupQuery, oidParams, transferSchema, updateSchema } from './members.schema.ts';
 import {
     anonymiseMember,
     createMember,
@@ -18,7 +18,6 @@ import {
     memberAt,
     type MemberDeps,
     memberDetail,
-    setSuspension,
     transferMember,
     updateMember
 } from './members.service.ts';
@@ -26,11 +25,12 @@ import { memberTimeline } from './members.timeline.ts';
 
 /**
  * Members of the branch in `X-Branch-Id` (phase 2 step 3; D-022, D-068). The desk adds and edits (`create`,
- * `update Member`); suspending, transfers and anonymising need a manager (`manage Member`).
+ * `update Member`); transfers and anonymising need a manager (`manage Member`). Suspensions and bans are
+ * sanctions on a discipline case (phase 5, discipline.routes.ts).
  * - `GET /v1/members` (search, status, plan, flag, paging, sort) → `{ rows, count, page, size, counts }`
  * - `GET /v1/members/lookup?code=` (scanner, this branch only), `GET /v1/members/:oid`
  * - `POST /v1/members`, `PATCH /v1/members/:oid`
- * - `POST /v1/members/:oid/suspend` `{ reason }`, `/unsuspend`, `/transfer` `{ to_branch_oid, reason }`,
+ * - `POST /v1/members/:oid/transfer` `{ to_branch_oid, reason }`,
  *   `/anonymise` `{ confirm_code }`
  * - `GET /v1/members/:oid/timeline`, `/documents`, `/notifications` (measurements: training.routes.ts)
  * Subscriptions, invoices and attendance of a member are served by their own features.
@@ -68,17 +68,6 @@ export function membersRouter(deps: AppDeps): Router {
         const { oid } = parse(oidParams, req.params);
         const body = parse(updateSchema, req.body);
         ok(res, await updateMember(memberDeps, branchContext(req), oid, today(), body), 'Member updated');
-    });
-
-    router.post('/v1/members/:oid/suspend', ...branch, requireAbility('manage', 'Member'), async (req, res) => {
-        const { oid } = parse(oidParams, req.params);
-        const { reason } = parse(reasonSchema, req.body);
-        ok(res, await setSuspension(memberDeps, branchContext(req), oid, today(), reason), 'Member suspended');
-    });
-
-    router.post('/v1/members/:oid/unsuspend', ...branch, requireAbility('manage', 'Member'), async (req, res) => {
-        const { oid } = parse(oidParams, req.params);
-        ok(res, await setSuspension(memberDeps, branchContext(req), oid, today(), null), 'Suspension lifted');
     });
 
     router.post('/v1/members/:oid/transfer', ...branch, requireAbility('manage', 'Member'), guestMember, async (req, res) => {

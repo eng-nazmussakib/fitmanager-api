@@ -3,6 +3,7 @@ import { pgErrorCode, sql } from '#src/db/sql.ts';
 import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { claimFile, memberFiles, viewUrl } from '#src/features/files/files.service.ts';
+import { acceptPolicies } from '#src/features/policies/policies.service.ts';
 import type { FileStore } from '#src/lib/file-store.ts';
 import { AppError } from '#src/lib/http.ts';
 
@@ -25,15 +26,14 @@ export const ANONYMISED_NAME = 'Anonymised member';
 
 /** The wire shape (`Member` in the web app): snake_case, the photo as a signed link. */
 export async function toWire(deps: Pick<MemberDeps, 'jwtSecret' | 'apiPrefix'>, m: MemberRow) {
-    const { branch_code, branch_slug, branch_name, photo_file_oid, suspended_reason, notes, ...rest } = m;
+    const { branch_code, branch_slug, branch_name, photo_file_oid, sanction_level, sanction_reason, sanction_until, sanction_branch, ...rest } = m;
     return {
         ...rest,
         photo_file_oid,
         photo_url: photo_file_oid ? await viewUrl(deps, { oid: photo_file_oid, branch_oid: m.branch_oid }) : null,
         branch: { oid: m.branch_oid, code: branch_code, slug: branch_slug, name: branch_name, kind: 'BRANCH' as const },
-        suspended_reason,
-        // The mock shows the suspension in the notes; keep both.
-        notes: suspended_reason ? `Suspended: ${suspended_reason}` : notes
+        // What makes the member Suspended or Banned (D-093): the record is on the discipline tab.
+        sanction: sanction_level ? { level: sanction_level, reason: sanction_reason ?? '', until: sanction_until, branch_name: sanction_branch ?? '' } : null
     };
 }
 
@@ -135,6 +135,7 @@ export async function createMember(
         }
         const created = await memberAt(tx, ctx, oid, today);
         await recordAudit(tx, ctx, { action: 'create', entity: 'member', entityKey: code, before: null, after: auditView(created) });
+        if (input.policies_signed && source === 'desk') await acceptPolicies(tx, ctx, { oid, code, joined_on: today }, 'paper', today);
         return created;
     });
     return toWire(deps, row);
@@ -142,7 +143,21 @@ export async function createMember(
 
 /** What the audit log keeps of a member: the record, not the derived state that changes by itself every day. */
 function auditView(m: MemberRow) {
-    const { status: _s, plan_name: _p, valid_until: _v, days_left: _d, dues: _du, last_visit: _l, current_subscription_oid: _c, frozen_until: _f, ...rest } = m;
+    const {
+        status: _s,
+        plan_name: _p,
+        valid_until: _v,
+        days_left: _d,
+        dues: _du,
+        last_visit: _l,
+        current_subscription_oid: _c,
+        frozen_until: _f,
+        sanction_level: _sl,
+        sanction_reason: _sr,
+        sanction_until: _su,
+        sanction_branch: _sb,
+        ...rest
+    } = m;
     return rest;
 }
 
@@ -157,28 +172,6 @@ export async function updateMember(deps: MemberDeps, ctx: BranchContext, oid: st
         await membersRepo.update(tx, oid, { ...input }, actor).catch(phoneTaken);
         const after = await memberAt(tx, ctx, oid, today);
         await recordAudit(tx, ctx, { action: 'update', entity: 'member', entityKey: after.code, before: auditView(before), after: auditView(after) });
-        return after;
-    });
-    return toWire(deps, row);
-}
-
-export async function setSuspension(deps: MemberDeps, ctx: BranchContext, oid: string, today: string, reason: string | null) {
-    const actor = actorOf(ctx);
-    const row = await withBranchTx(deps.db, ctx, async tx => {
-        const locked = await membersRepo.lock(tx, oid, ctx.branchOid);
-        if (!locked) throw new AppError(404, 'Member not found');
-        const before = await memberAt(tx, ctx, oid, today);
-        if (reason !== null && before.suspended_reason) throw new AppError(409, 'This member is already suspended');
-        if (reason === null && !before.suspended_reason) throw new AppError(409, 'This member is not suspended');
-        await membersRepo.update(tx, oid, { suspended_at: reason === null ? null : new Date(), suspended_reason: reason }, actor);
-        const after = await memberAt(tx, ctx, oid, today);
-        await recordAudit(tx, ctx, {
-            action: reason === null ? 'unsuspend' : 'suspend',
-            entity: 'member',
-            entityKey: after.code,
-            before: { status: before.status, suspended_reason: before.suspended_reason },
-            after: { status: after.status, suspended_reason: after.suspended_reason }
-        });
         return after;
     });
     return toWire(deps, row);
@@ -279,6 +272,11 @@ export async function anonymiseMember(deps: MemberDeps, ctx: BranchContext, oid:
         await tx.query(sql`update invoice set member_name = ${ANONYMISED_NAME}, member_phone = null where member_oid = ${oid}`);
         await tx.query(sql`update check_in set member_name = ${ANONYMISED_NAME}, member_photo_file_oid = null where member_oid = ${oid}`);
         await tx.query(sql`update notification set recipient = null where member_oid = ${oid}`);
+        // Governance copies (phase 5): the cases, complaints and ratings stay, under the code, without the name.
+        await tx.query(sql`update incident set subject_name = ${ANONYMISED_NAME} where member_oid = ${oid}`);
+        await tx.query(sql`update complaint set member_name = ${ANONYMISED_NAME}, photo_file_oid = null where member_oid = ${oid}`);
+        await tx.query(sql`update rating set member_name = ${ANONYMISED_NAME} where member_oid = ${oid}`);
+        await tx.query(sql`update appeal set filed_by_name = ${ANONYMISED_NAME} where sanction_oid in (select oid from sanction where member_oid = ${oid})`);
         await tx.query(sql`update app_user set status = 'Inactive', updated_at = now() where member_oid = ${oid}`);
         // The audit row keeps only that it happened: copying the wiped data here would undo the request.
         await recordAudit(tx, ctx, {

@@ -1,7 +1,18 @@
 import type { Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
 
-export type FileKind = 'member_photo' | 'member_document' | 'trainer_photo' | 'exercise_photo' | 'exercise_video' | 'measurement_photo';
+export type FileKind =
+    | 'member_photo'
+    | 'member_document'
+    | 'trainer_photo'
+    | 'exercise_photo'
+    | 'exercise_video'
+    | 'measurement_photo'
+    | 'incident_evidence'
+    | 'complaint_photo'
+    | 'product_photo'
+    | 'equipment_photo'
+    | 'ticket_photo';
 export type FileStatus = 'pending' | 'ready' | 'rejected' | 'deleted';
 
 /** A stored file as the API shows it. `storage_key` stays on the server. */

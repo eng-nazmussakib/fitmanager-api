@@ -193,6 +193,32 @@ GET {{api}}/hq/reconciliation?from=2026-11-06&to=2026-11-19
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
 
+### Reports (D-106): revenue, dues, members, attendance, classes, trainers, shop, operations
+GET {{api}}/reports/revenue?from=2026-10-21&to=2026-11-19&compare=1
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### The same at HQ, a column per branch
+GET {{api}}/hq/reports/attendance?from=2026-08-22&to=2026-11-19
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### Export the member list (D-107): a page at a time; the first page writes the audit row
+POST {{api}}/exports/members
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "format": "xlsx", "filters": { "status": "Active" } }
+
+### A report table exported in the browser (audit row only)
+POST {{api}}/exports/report
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+Content-Type: application/json
+
+{ "format": "pdf", "report": "revenue", "table": "by_method", "from": "2026-10-21", "to": "2026-11-19", "rows": 5 }
+
 ### Portal access for the member (temporary password; the username is the member code)
 POST {{api}}/members/{{member}}/portal-access
 Authorization: Bearer {{token}}
@@ -270,3 +296,109 @@ X-Branch-Id: {{gulshan}}
 GET {{api}}/members/{{member}}/measurements
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
+
+### Phase 5: HQ's policies (D-090), and a member's acceptances (D-091)
+GET {{api}}/policies
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/members/{{member}}/policies
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### The desk records "signed on paper" for every policy not accepted yet
+POST {{api}}/members/{{member}}/policies/accept
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{}
+
+### Discipline cases (D-092): the list, then record one about a member
+GET {{api}}/incidents?status=open
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+POST {{api}}/incidents
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "subject_kind": "member", "member_code": "MEM-GUL-000001", "occurred_at": "2026-11-20T18:00:00+06:00", "category": "conduct", "summary": "Music on a speaker", "description": "Played music aloud on the mats." }
+
+### Give a step on it (the suggested one needs no reason)
+@incident = 00000000-0000-0000-0000-000000000000
+POST {{api}}/incidents/{{incident}}/sanctions
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "level": "verbal", "reason": "Please use headphones on the floor." }
+
+### Complaints (D-095) and feedback (D-096)
+GET {{api}}/complaints?overdue=1
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/feedback?days=90
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### The public policies
+GET {{api}}/public/policies/gym-rules
+
+
+### Phase 6: the equipment register at Gulshan (service due is worked out when read)
+GET {{api}}/equipment?due=1
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Open maintenance tickets
+GET {{api}}/equipment-tickets
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### HQ's catalogue (D-099) and Gulshan's stock, the low ones only (D-101)
+GET {{api}}/products
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/stock?low=1
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### Purchase orders (D-100) and stock transfers
+GET {{api}}/purchase-orders
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+GET {{api}}/transfers
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+### A POS sale to a walk-in (D-102): price it first, then sell (set @product from /pos/products)
+@product = 00000000-0000-0000-0000-000000000000
+POST {{api}}/pos/quote
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "member_oid": null, "lines": [{ "product_oid": "{{product}}", "qty": 2 }] }
+
+###
+POST {{api}}/pos/sales
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "member_oid": null, "lines": [{ "product_oid": "{{product}}", "qty": 2 }], "payment": { "method": "bkash", "amount": 414, "reference": "BK-DEMO" } }
+
+### HQ: every branch's stock
+GET {{api}}/hq/stock
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
