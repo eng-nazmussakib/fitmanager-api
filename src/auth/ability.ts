@@ -16,6 +16,7 @@ import { createMongoAbility, type MongoAbility, type RawRuleOf } from '@casl/abi
  * - phase 5 (D-097): Policy (HQ writes), Incident (cases, sanctions, appeals), Complaint, Feedback (NPS and ratings).
  * - phase 6 (D-102, D-104): Equipment (`create` = raise a maintenance ticket), Product and Supplier (HQ writes), Stock,
  *   PurchaseOrder (HQ approves), Transfer, Sale (POS; `manage` = discounts and late returns).
+ * - phase 7c (D-109): Website (the public site's blog, offers and gallery at HQ; a branch's own page and photos).
  */
 export type Action = 'manage' | 'read' | 'create' | 'update' | 'delete' | 'export';
 export type Subject =
@@ -58,6 +59,7 @@ export type Subject =
     | 'PurchaseOrder'
     | 'Transfer'
     | 'Sale'
+    | 'Website'
     | 'all';
 export type AppAbility = MongoAbility<[Action, Subject]>;
 export type AppRule = RawRuleOf<AppAbility>;

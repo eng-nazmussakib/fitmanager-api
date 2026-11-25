@@ -54,6 +54,17 @@ const AUDITED: Record<string, string> = {
     'POST /v1/exports/stock': 'exports.test.ts › stock, with the costs for a manager',
     'POST /v1/exports/audit': 'exports.test.ts › the audit log, at HQ and at a branch',
     'POST /v1/exports/report': 'exports.test.ts › a report table: only the audit row',
+    'POST /v1/website/posts': 'website.test.ts › the blog: create, update, delete audited',
+    'PATCH /v1/website/posts/:oid': 'website.test.ts › the blog',
+    'DELETE /v1/website/posts/:oid': 'website.test.ts › the blog',
+    'POST /v1/website/categories': 'website.test.ts › the blog (blog_category)',
+    'POST /v1/website/offers': 'website.test.ts › offers',
+    'PATCH /v1/website/offers/:oid': 'website.test.ts › offers',
+    'DELETE /v1/website/offers/:oid': 'website.test.ts › offers (delete, audited like posts)',
+    'POST /v1/website/gallery': 'website.test.ts › the gallery (gallery_item)',
+    'PATCH /v1/website/gallery/:oid': 'website.test.ts › the gallery',
+    'DELETE /v1/website/gallery/:oid': 'website.test.ts › the gallery',
+    'PUT /v1/website/branch': 'website.test.ts › branch pages (branch_page)',
     // Phase 3 (D-078 to D-083)
     'POST /v1/trainers': 'pt-facilities.test.ts › PT, trainers and facilities: audit log',
     'PATCH /v1/trainers/:oid': 'pt-facilities.test.ts › PT, trainers and facilities: audit log',
@@ -155,6 +166,8 @@ const AUDITED: Record<string, string> = {
 };
 
 const EXEMPT: Record<string, string> = {
+    'POST /v1/inbox/read': "a person's read marks on their own inbox (staff_message_read: who and when), not business data (D-108 d)",
+    'POST /v1/me/notifications/read': "the member's read marks on their own messages (notification.read_at), not business data (D-108 d)",
     'POST /v1/auth/login': 'session start; the session itself is the refresh_token row (user, time, user agent)',
     'POST /v1/auth/guest': 'guest session start (D-076), like sign-in: the refresh_token row records user, time and user agent',
     'POST /v1/auth/refresh': 'token rotation inside an existing session (refresh_token rows)',

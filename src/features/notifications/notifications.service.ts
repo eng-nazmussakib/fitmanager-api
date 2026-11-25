@@ -1,5 +1,6 @@
 import type { Queryable } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
+import { memberPolicies } from '#src/features/policies/policies.service.ts';
 import { addDays, dhakaInstant, dhakaNow, shortDate } from '#src/lib/clock.ts';
 import { log } from '#src/lib/logger.ts';
 
@@ -10,11 +11,42 @@ import { log } from '#src/lib/logger.ts';
  * `channel` records how the member could be reached by hand (`email`, `sms`) or `log` when they gave neither;
  * `status` is `logged`, or `skipped` when there is nobody to send it to.
  */
-export type NotificationKind = 'receipt' | 'expiry_7d' | 'expiry_1d' | 'welcome' | 'class_cancelled' | 'waitlist_promoted' | 'pt_booked' | 'pt_cancelled';
+export type NotificationKind =
+    | 'receipt'
+    | 'expiry_7d'
+    | 'expiry_1d'
+    | 'welcome'
+    | 'class_cancelled'
+    | 'waitlist_promoted'
+    | 'pt_booked'
+    | 'pt_cancelled'
+    // Phase 7b (D-108 a).
+    | 'complaint_reply'
+    | 'sanction'
+    | 'appeal_decided'
+    | 'policy_to_accept'
+    | 'shop_receipt';
+
+/** Read messages older than this are no longer listed (D-108 d); nothing deletes them. */
+export const RETENTION_DAYS = 180;
+
+export interface MemberContact {
+    oid: string;
+    code: string;
+    name: string;
+    email: string | null;
+    phone: string | null;
+}
+
+/** The member's name and how staff could reach them by hand, or null when there is no such member (or anonymised). */
+export async function memberContact(tx: Queryable, memberOid: string): Promise<MemberContact | null> {
+    const [m] = await tx.query<MemberContact>(sql`select oid, code, name, email, phone from member where oid = ${memberOid} and anonymised_at is null`);
+    return m ?? null;
+}
 
 export interface NotificationInput {
     branch_oid: string;
-    member: { oid: string; code: string; name: string; email: string | null; phone: string | null };
+    member: MemberContact;
     kind: NotificationKind;
     subject: string;
     body: string;
@@ -22,7 +54,7 @@ export interface NotificationInput {
     /** One message per key: an expiry reminder is written once per plan, however often the list is read. */
     dedupe_key: string;
     /** When the message counts as sent (reminders: their due day at 00:05 Dhaka); default now. */
-    at?: Date;
+    at?: Date | undefined;
 }
 
 /** Records (and "delivers") one message in the caller's transaction. Returns false when it was already sent. */
@@ -50,6 +82,7 @@ export interface NotificationRow {
     body: string;
     status: string;
     created_at: Date;
+    read_at: Date | null;
 }
 
 /** Expiry reminders: 7 days and 1 day before a plan ends (D-070 f). */
@@ -104,12 +137,63 @@ export async function writeDueReminders(tx: Queryable, memberOid: string, now: D
     return written;
 }
 
+/**
+ * A message for each required policy the member has still to accept (D-108 a), once per version that needs it.
+ * Written when the member's messages are read, like the reminders: publishing a policy writes nothing for hundreds of
+ * members at once.
+ */
+export async function writePolicyReminders(tx: Queryable, memberOid: string, now: Date): Promise<number> {
+    const [m] = await tx.query<MemberContact & { joined_on: string; branch_oid: string }>(sql`
+        select oid, code, name, email, phone, joined_on::text as joined_on, branch_oid from member where oid = ${memberOid} and anonymised_at is null`);
+    if (!m) return 0;
+    let written = 0;
+    for (const p of await memberPolicies(tx, m, dhakaNow(now).date)) {
+        if (p.state !== 'due' && p.state !== 'overdue') continue;
+        const sent = await notify(tx, {
+            branch_oid: m.branch_oid,
+            member: m,
+            kind: 'policy_to_accept',
+            subject: p.required_version > 1 ? `${p.title} has changed` : `Please accept: ${p.title}`,
+            body: `Dear ${m.name}, please read and accept the ${p.title}${p.blocks_on ? ` by ${shortDate(p.blocks_on)}, or check-in pauses from that day` : ''}. It is under Policies in the portal, or ask at the front desk.`,
+            related_oid: p.policy_oid,
+            dedupe_key: `policy:${p.policy_oid}:v${p.required_version}:${memberOid}`,
+            at: now
+        });
+        if (sent) written++;
+    }
+    return written;
+}
+
+/** Messages still listed: unread ones, and read ones from the last 180 days. */
+const listed = (memberOid: string, now: Date) =>
+    sql`member_oid = ${memberOid} and (read_at is null or created_at > ${new Date(now.getTime() - RETENTION_DAYS * 86_400_000)})`;
+
 export const notificationsRepo = {
-    /** The member's messages, newest first, after writing any reminder that has fallen due. */
-    async forMember(tx: Queryable, memberOid: string, now: Date, limit = 50) {
+    /** Writes the reminders and policy messages that have fallen due (idempotent). */
+    async writeDue(tx: Queryable, memberOid: string, now: Date) {
         await writeDueReminders(tx, memberOid, now);
+        await writePolicyReminders(tx, memberOid, now);
+    },
+    /** The member's messages, newest first, after writing any that have fallen due. */
+    async forMember(tx: Queryable, memberOid: string, now: Date, limit = 50) {
+        await this.writeDue(tx, memberOid, now);
         return tx.query<NotificationRow>(sql`
-            select oid, kind, channel, subject, body, status, created_at from notification
-            where member_oid = ${memberOid} order by created_at desc limit ${limit}`);
+            select oid, kind, channel, subject, body, status, created_at, read_at from notification
+            where ${listed(memberOid, now)} order by created_at desc limit ${limit}`);
+    },
+    async unread(tx: Queryable, memberOid: string, now: Date): Promise<number> {
+        await this.writeDue(tx, memberOid, now);
+        const [row] = await tx.query<{ n: number }>(sql`select count(*)::int as n from notification where member_oid = ${memberOid} and read_at is null`);
+        return row?.n ?? 0;
+    },
+    /** Marks the member's messages read: those named, or all. Returns how many are still unread. */
+    async markRead(tx: Queryable, memberOid: string, oids: readonly string[] | undefined, now: Date): Promise<number> {
+        await tx.query(sql`
+            update notification set read_at = ${now}
+            where member_oid = ${memberOid} and read_at is null and (${oids ?? null}::uuid[] is null or oid = any (${oids ?? null}::uuid[]))`);
+        const [row] = await tx.query<{ n: number }>(sql`select count(*)::int as n from notification where member_oid = ${memberOid} and read_at is null`);
+        return row?.n ?? 0;
     }
 };
+
+export const notificationWire = (n: NotificationRow) => ({ ...n, created_at: n.created_at.toISOString(), read_at: n.read_at?.toISOString() ?? null });

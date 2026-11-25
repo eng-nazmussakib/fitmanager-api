@@ -9,7 +9,16 @@ import { AppError, ok, parse } from '#src/lib/http.ts';
 
 import type { FileKind, FileRow } from './files.repo.ts';
 import { fileParams, startSchema, uploadQuery } from './files.schema.ts';
-import { completeUpload, deleteFile, type FileDeps, readByViewToken, readFileContent, receiveLocalUpload, startUpload } from './files.service.ts';
+import {
+    completeUpload,
+    deleteFile,
+    type FileDeps,
+    readByViewToken,
+    readFileContent,
+    readSiteImage,
+    receiveLocalUpload,
+    startUpload
+} from './files.service.ts';
 
 /**
  * Who may upload (and complete), read and delete each kind of file, and where: member files and trainer photos at a
@@ -28,7 +37,9 @@ const KIND_RULES: Record<FileKind, { write: [Action, Subject]; read: [Action, Su
     // Phase 6: product photos at HQ (the catalogue), equipment and ticket photos at a branch.
     product_photo: { write: ['update', 'Product'], read: ['read', 'Product'], remove: ['update', 'Product'], hq: true },
     equipment_photo: { write: ['update', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false },
-    ticket_photo: { write: ['create', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false }
+    ticket_photo: { write: ['create', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false },
+    // Phase 7c: website images, at HQ (posts, offers, any branch's gallery) or at a branch (its own photos).
+    site_image: { write: ['update', 'Website'], read: ['read', 'Website'], remove: ['update', 'Website'], hq: true }
 };
 
 /**
@@ -83,13 +94,14 @@ export function filesRouter(deps: AppDeps): Router {
         ok(res, await completeUpload(fileDeps, branchContext(req), oid, may(req, 'write')), 'File saved');
     });
 
-    const send = (res: Response, file: FileRow, body: Uint8Array, maxAge: number) => {
+    const send = (res: Response, file: FileRow, body: Uint8Array, maxAge: number, shared = false) => {
         // `nosniff` + the type we checked: the browser never guesses the bytes into something executable.
         res.set({
             'Content-Type': file.content_type,
             'X-Content-Type-Options': 'nosniff',
             'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(file.name)}`,
-            'Cache-Control': `private, max-age=${maxAge}`,
+            // A website image never changes under its oid: cached anywhere for a year.
+            'Cache-Control': shared ? 'public, max-age=31536000, immutable' : `private, max-age=${maxAge}`,
             'Content-Security-Policy': "default-src 'none'; img-src 'self'; style-src 'unsafe-inline'; sandbox",
             // The signed link carries its own permission; never send it on to another site.
             'Referrer-Policy': 'no-referrer'
@@ -104,6 +116,13 @@ export function filesRouter(deps: AppDeps): Router {
     });
 
     // `<img src>` and "open in a new tab": the token from `viewUrl()` is the permission (1 hour).
+    // Phase 7c (D-109): a website image, public, for the public pages (prerendered ones point at this URL).
+    router.get('/v1/public/images/:oid', async (req, res) => {
+        const { oid } = parse(fileParams, req.params);
+        const { file, body } = await readSiteImage(fileDeps, oid);
+        send(res, file, body, 0, true);
+    });
+
     router.get('/v1/files/:oid/view', async (req, res) => {
         const { oid } = parse(fileParams, req.params);
         const { token } = parse(uploadQuery, req.query);

@@ -3,6 +3,7 @@ import { sql } from '#src/db/sql.ts';
 import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { claimKindFile, viewUrl } from '#src/features/files/files.service.ts';
+import { tellStaff } from '#src/features/notifications/inbox.service.ts';
 import { nextCode } from '#src/features/stock/stock.repo.ts';
 import { addDays, daysBetween, type DhakaNow } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
@@ -321,6 +322,7 @@ export async function raiseTicket(deps: EquipmentDeps, ctx: BranchContext, now: 
             await tx.query(sql`update equipment set status = 'out_of_order', updated_at = now() where oid = ${equipmentOid}`);
         if (!row) throw new Error('maintenance_ticket insert returned no row');
         const saved = await ticketRow(tx, ctx, row.oid);
+        if (saved.priority === 'urgent') await urgentTicket(tx, ctx, now, saved.oid, code, e.name, input.description, outOfOrder);
         await recordAudit(tx, ctx, {
             action: 'create',
             entity: 'maintenance_ticket',
@@ -331,6 +333,20 @@ export async function raiseTicket(deps: EquipmentDeps, ctx: BranchContext, now: 
         return saved;
     });
     return ticketWire(deps, t);
+}
+
+/** An urgent ticket goes to the branch's inbox (D-108 b), once per ticket. */
+async function urgentTicket(tx: Queryable, ctx: BranchContext, now: DhakaNow, oid: string, code: string, equipment: string, description: string, out: boolean) {
+    await tellStaff(tx, ctx, {
+        to_branch_oid: ctx.branchOid,
+        kind: 'ticket_urgent',
+        subject: `Urgent: ${equipment} (${code})`,
+        body: `${ctx.actor?.name ?? 'Staff'} raised an urgent ticket${out ? ', and took it out of use' : ''}: ${description}`,
+        link: 'equipment?tab=tickets',
+        related_oid: oid,
+        dedupe_key: `ticket_urgent:${oid}`,
+        at: now.at
+    });
 }
 
 export async function updateTicket(deps: EquipmentDeps, ctx: BranchContext, now: DhakaNow, oid: string, input: TicketUpdate) {
@@ -356,6 +372,8 @@ export async function updateTicket(deps: EquipmentDeps, ctx: BranchContext, now:
                 await tx.query(sql`update equipment set status = 'in_use', updated_at = now() where oid = ${before.equipment_oid} and status = 'out_of_order'`);
         }
         const after = await ticketRow(tx, ctx, oid);
+        if (!closing && after.priority === 'urgent' && before.priority !== 'urgent')
+            await urgentTicket(tx, ctx, now, oid, after.code, after.equipment_name, after.description, after.out_of_order);
         await recordAudit(tx, ctx, {
             action: closing ? 'close' : 'update',
             entity: 'maintenance_ticket',

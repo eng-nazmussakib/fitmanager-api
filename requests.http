@@ -402,3 +402,57 @@ Content-Type: application/json
 GET {{api}}/hq/stock
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
+
+### Phase 7b (D-108): the bell. The staff inbox at Gulshan, then mark it all read.
+GET {{api}}/inbox
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+
+###
+POST {{api}}/inbox/read
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{}
+
+### HQ's inbox (orders waiting for approval, escalations, appeals)
+GET {{api}}/inbox/count
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### A member's bell (sign in as MEM-GUL-000001 / Member@123 first, and use that token)
+GET {{api}}/me/notifications/count
+Authorization: Bearer {{token}}
+
+###
+POST {{api}}/me/notifications/read
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{}
+
+### Phase 7c (D-109): the public blog, offers and photos
+GET {{api}}/public/posts
+
+###
+GET {{api}}/public/posts/the-benefits-of-hiit-training
+
+###
+GET {{api}}/public/offers
+
+###
+GET {{api}}/public/gallery?branch=gulshan
+
+### HQ: every post (drafts and scheduled too) (sign in as admin.hq)
+GET {{api}}/website/posts
+Authorization: Bearer {{token}}
+X-Branch-Id: {{hq}}
+
+### A branch manager's page text
+PUT {{api}}/website/branch
+Authorization: Bearer {{token}}
+X-Branch-Id: {{gulshan}}
+Content-Type: application/json
+
+{ "description": "Two floors in Gulshan 2, open from 6 am." }

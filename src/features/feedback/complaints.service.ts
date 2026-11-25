@@ -4,6 +4,8 @@ import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { claimKindFile, viewUrl } from '#src/features/files/files.service.ts';
 import { membersRepo } from '#src/features/members/members.repo.ts';
+import { hqOid, tellStaff } from '#src/features/notifications/inbox.service.ts';
+import { memberContact, notify } from '#src/features/notifications/notifications.service.ts';
 import { AppError } from '#src/lib/http.ts';
 
 import type { ComplaintCreate, ComplaintQuery, PortalComplaintCreate } from './feedback.schema.ts';
@@ -232,15 +234,31 @@ export async function replyComplaint(
         const status = effectiveStatus(c, now);
         if (status === 'closed') throw new AppError(409, 'This complaint is closed.');
         const next: Status = input.status ?? (status === 'open' ? 'in_progress' : status);
-        await tx.query(sql`
+        const [update] = await tx.query<{ oid: string }>(sql`
             insert into complaint_update (branch_oid, complaint_oid, author, author_name, body, status, created_at)
-            values (${c.branch_oid}, ${oid}, 'staff', ${ctx.actor?.name ?? 'Staff'}, ${input.body}, ${next === status ? null : next}, ${now})`);
+            values (${c.branch_oid}, ${oid}, 'staff', ${ctx.actor?.name ?? 'Staff'}, ${input.body}, ${next === status ? null : next}, ${now})
+            returning oid`);
         await tx.query(sql`
             update complaint set status = ${next}, first_response_at = coalesce(first_response_at, ${now}),
                 resolution = case when ${next} = 'resolved' then ${input.body} else resolution end,
                 resolved_at = case when ${next} = 'resolved' then ${now}::timestamptz else resolved_at end,
                 updated_at = ${now}
             where oid = ${oid}`);
+        // The member hears of it in the portal (D-108 a).
+        const member = c.member_oid ? await memberContact(tx, c.member_oid) : null;
+        if (member)
+            await notify(tx, {
+                branch_oid: c.branch_oid,
+                member,
+                kind: 'complaint_reply',
+                subject: next === 'resolved' ? `Resolved: ${c.subject}` : `A reply about ${c.subject}`,
+                body: `Dear ${member.name}, ${ctx.actor?.name ?? 'the gym'} wrote about your complaint ${c.code}: ${clip(input.body, 280)}${
+                    next === 'resolved' ? ' Accept the resolution in the portal, or ask HQ to look at it within 7 days.' : ''
+                }`,
+                related_oid: c.oid,
+                dedupe_key: `complaint_reply:${update?.oid ?? now.toISOString()}`,
+                at: now
+            });
         await recordAudit(tx, ctx, {
             action: next === 'resolved' ? 'resolve' : 'reply',
             entity: 'complaint',
@@ -275,6 +293,25 @@ async function escalate(tx: Queryable, ctx: BranchContext, c: ComplaintRow, by: 
         values (${c.branch_oid}, ${c.oid}, ${by === 'member' ? 'member' : 'staff'}, ${ctx.actor?.name ?? c.member_name}, ${`Escalated to HQ: ${reason}`},
             ${next === status ? null : next}, ${now})`);
     await recordAudit(tx, ctx, { action: 'escalate', entity: 'complaint', entityKey: c.code, before: { status }, after: { status: next, by, reason } });
+    // HQ's inbox; when the member escalated, the branch's too (D-108 b).
+    const who = by === 'member' ? c.member_name : (ctx.actor?.name ?? 'The branch manager');
+    const message = {
+        kind: 'complaint_escalated' as const,
+        subject: `Escalated to HQ: ${c.code} ${c.subject}`,
+        body: `${who} escalated complaint ${c.code} at ${c.branch_name}: ${clip(reason, 280)}`,
+        link: `complaints?open=${c.oid}`,
+        related_oid: c.oid,
+        at: now
+    };
+    await tellStaff(tx, ctx, { ...message, to_branch_oid: await hqOid(tx), dedupe_key: `complaint_escalated:hq:${c.oid}` });
+    if (by === 'member') await tellStaff(tx, ctx, { ...message, to_branch_oid: c.branch_oid, dedupe_key: `complaint_escalated:branch:${c.oid}` });
+}
+
+/** At most `n` characters, on a word. */
+function clip(s: string, n: number): string {
+    if (s.length <= n) return s;
+    const cut = s.slice(0, n);
+    return `${cut.slice(0, Math.max(cut.lastIndexOf(' '), n - 20)).trimEnd()}…`;
 }
 
 /* ---------- the member portal ---------- */

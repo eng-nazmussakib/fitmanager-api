@@ -104,7 +104,9 @@ describe('member portal (D-064)', () => {
                 .set(...me)
                 .expect(200)
         ).body.data as { kind: string; status: string }[];
-        expect(msgs).toEqual([expect.objectContaining({ kind: 'receipt', status: 'logged' })]);
+        expect(msgs.filter(m => m.kind === 'receipt')).toEqual([expect.objectContaining({ kind: 'receipt', status: 'logged' })]);
+        // The policies the new member still has to accept are messages too (D-108 a), written when the list is read.
+        expect(msgs.filter(m => m.kind === 'policy_to_accept').length).toBeGreaterThan(0);
 
         // A member cannot reach staff routes.
         await request(t.app)

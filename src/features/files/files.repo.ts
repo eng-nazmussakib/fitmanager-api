@@ -12,7 +12,8 @@ export type FileKind =
     | 'complaint_photo'
     | 'product_photo'
     | 'equipment_photo'
-    | 'ticket_photo';
+    | 'ticket_photo'
+    | 'site_image';
 export type FileStatus = 'pending' | 'ready' | 'rejected' | 'deleted';
 
 /** A stored file as the API shows it. `storage_key` stays on the server. */

@@ -2,6 +2,7 @@ import { fileTypeFromBuffer } from 'file-type';
 import { jwtVerify, SignJWT } from 'jose';
 
 import type { Db, Queryable } from '#src/db/db.ts';
+import { sql } from '#src/db/sql.ts';
 import { type BranchContext, systemContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import type { FileStore, UploadTarget } from '#src/lib/file-store.ts';
@@ -91,6 +92,13 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         maxBytes: 300 * 1024,
         perMember: 0,
         label: 'A ticket photo is a JPEG, PNG or WebP of at most 300 KB'
+    },
+    // Phase 7c (D-109): website images (post covers, gallery and branch photos), shrunk in the browser, public.
+    site_image: {
+        types: ['image/jpeg', 'image/png', 'image/webp'],
+        maxBytes: 500 * 1024,
+        perMember: 0,
+        label: 'A website image is a JPEG, PNG or WebP of at most 500 KB'
     }
 };
 
@@ -270,6 +278,22 @@ export async function readByViewToken(deps: FileDeps, oid: string, token: string
     }
     const row = await withBranchTx(deps.db, systemContext(branchOid), tx => filesRepo.get(tx, oid, [branchOid]));
     if (row?.status !== 'ready') throw new AppError(404, 'File not found');
+    const body = await deps.files.read(row.storage_key);
+    if (!body) throw new AppError(404, 'File not found');
+    const { storage_key: _key, ...file } = row;
+    return { file, body };
+}
+
+/**
+ * A website image (`site_image`, D-109) for the public site: anyone may read a ready one, at a stable URL
+ * (`/v1/public/images/:oid`), so prerendered pages can point at it. Every other kind stays private.
+ */
+export async function readSiteImage(deps: FileDeps, oid: string): Promise<{ file: FileRow; body: Uint8Array }> {
+    const all = (await deps.db.query<{ oid: string }>(sql`select oid from branch`)).map(b => b.oid);
+    const first = all[0];
+    if (!first) throw new AppError(404, 'File not found');
+    const row = await withBranchTx(deps.db, systemContext(first, all), tx => filesRepo.get(tx, oid, all));
+    if (row?.status !== 'ready' || row.kind !== 'site_image') throw new AppError(404, 'File not found');
     const body = await deps.files.read(row.storage_key);
     if (!body) throw new AppError(404, 'File not found');
     const { storage_key: _key, ...file } = row;

@@ -16,7 +16,8 @@ export const startSchema = v.strictObject({
             'complaint_photo',
             'product_photo',
             'equipment_photo',
-            'ticket_photo'
+            'ticket_photo',
+            'site_image'
         ],
         'Unknown kind of file'
     ),

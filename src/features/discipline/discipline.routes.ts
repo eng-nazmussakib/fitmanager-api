@@ -48,7 +48,7 @@ import { giverRole } from './ladder.ts';
  */
 export function disciplineRouter(deps: AppDeps): Router {
     const router = Router();
-    const d: DisciplineDeps = { db: deps.db, cache: deps.cache, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix };
+    const d: DisciplineDeps = { db: deps.db, cache: deps.cache, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix, clock: deps.clock };
     const today = () => dhakaNow(deps.clock()).date;
     const staff = [authenticate(deps), requireAnyBranch()];
     const branch = [authenticate(deps), requireBranch('BRANCH')];

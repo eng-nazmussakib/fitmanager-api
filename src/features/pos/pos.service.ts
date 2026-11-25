@@ -4,8 +4,9 @@ import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { catalogueRepo, effectiveVat, photoLinks } from '#src/features/catalogue/catalogue.service.ts';
 import { memberAt } from '#src/features/members/members.service.ts';
+import { notify } from '#src/features/notifications/notifications.service.ts';
 import { salesRepo } from '#src/features/sales/sales.repo.ts';
-import { checkPayment, invoiceOut, newInvoice, receipt, REFUND_WINDOW_DAYS } from '#src/features/sales/sales.service.ts';
+import { checkPayment, invoiceOut, newInvoice, REFUND_WINDOW_DAYS } from '#src/features/sales/sales.service.ts';
 import { readOrgRules } from '#src/features/settings/settings.routes.ts';
 import { moveStock } from '#src/features/stock/stock.repo.ts';
 import { addDays, daysBetween, dhakaInstant, type DhakaNow, taka } from '#src/lib/clock.ts';
@@ -184,9 +185,8 @@ export async function sellPos(deps: PosDeps, ctx: BranchContext, now: DhakaNow, 
         const number = inv?.number ?? '';
         for (const l of q.lines)
             await moveStock(tx, ctx, now.at, { product_oid: l.product_oid, kind: 'sold', qty: -l.qty, ref_oid: invoiceOid, ref_label: number });
-        let paymentOid: string | null = null;
         if (input.payment.amount > 0) {
-            paymentOid = await salesRepo.insertPayment(
+            await salesRepo.insertPayment(
                 tx,
                 {
                     branch_oid: ctx.branchOid,
@@ -207,7 +207,22 @@ export async function sellPos(deps: PosDeps, ctx: BranchContext, now: DhakaNow, 
         const invoice = await invoiceOut(tx, invoiceOid, [ctx.branchOid]);
         // The same audit row as a locker rental's invoice: `<member code>/<number>`, which the reconciliation report finds.
         await recordAudit(tx, ctx, { action: 'create', entity: 'invoice', entityKey: `${c.code}/${number}`, before: null, after: { invoice, charged } });
-        if (paymentOid && c.oid) await receipt(tx, ctx, { ...c, oid: c.oid }, invoiceOid, paymentOid, input.payment.amount, number);
+        // A member's shop receipt (D-108 a): what they bought, what they paid, and what is on their account.
+        if (c.oid) {
+            const items = q.lines.map(l => l.label).join(', ');
+            await notify(tx, {
+                branch_oid: ctx.branchOid,
+                member: { ...c, oid: c.oid },
+                kind: 'shop_receipt',
+                subject: `Shop receipt ${number}`,
+                body: `Dear ${c.name}, thank you for shopping with us: ${items}. Total ${taka(q.total)}${
+                    input.payment.amount > 0 ? `, paid ${taka(input.payment.amount)}` : ''
+                }${charged > 0 ? `, ${taka(charged)} added to your account` : ''}.`,
+                related_oid: invoiceOid,
+                dedupe_key: `shop_receipt:${invoiceOid}`,
+                at: now.at
+            });
+        }
         return { invoice, charged, customer: customerWire(c, charged) };
     });
 }

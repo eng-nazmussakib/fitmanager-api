@@ -23,6 +23,10 @@ const NO_RLS: Record<string, string> = {
     policy: 'HQ master data on the HQ row (D-090): every branch and the public site read it, only HQ writes it (CASL)',
     product: 'HQ master data on the HQ row (D-099): every branch reads the catalogue, only HQ writes it (CASL)',
     supplier: 'HQ master data on the HQ row (D-099): branch managers read it for orders, only HQ writes it (CASL)',
+    blog_category: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
+    blog_post: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
+    offer: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
+    gallery_item: 'public website photos (D-109): read by the public site; HQ writes any, a branch manager their own (CASL + the branch check)',
     staff_assignment: 'identity: read at sign-in to build the branch context itself, before there is one'
 };
 
@@ -40,7 +44,9 @@ const READ_BY: Record<string, string[]> = {
     appeal: ['branch_oid', 'member_branch_oid'],
     // A stock transfer and its lines are seen by the branch that asked and the one that sends (D-101).
     stock_transfer: ['to_branch_oid', 'from_branch_oid'],
-    stock_transfer_line: ['to_branch_oid', 'from_branch_oid']
+    stock_transfer_line: ['to_branch_oid', 'from_branch_oid'],
+    // An inbox message is seen by the branch it is addressed to and the one that sent it (D-108).
+    staff_message: ['branch_oid', 'from_branch_oid']
 };
 
 /** Tables a policy reads (the probe role needs rights on them too): a trainer is seen where they are assigned (D-078). */
@@ -218,7 +224,9 @@ beforeAll(async () => {
             oid: string;
         };
         await request(t.app).post(`/api/v1/equipment/${kit.oid}/service`).set(m).send({ technician: 'Probe Tech' }).expect(201);
-        await request(t.app).post(`/api/v1/equipment/${kit.oid}/tickets`).set(d).send({ description: 'Probe squeak' }).expect(201);
+        // Phase 7b (D-108): an urgent ticket is a message in the branch's inbox, which the manager reads.
+        await request(t.app).post(`/api/v1/equipment/${kit.oid}/tickets`).set(d).send({ description: 'Probe squeak', priority: 'urgent' }).expect(201);
+        await request(t.app).post('/api/v1/inbox/read').set(m).send({}).expect(200);
         await request(t.app)
             .post('/api/v1/transfers')
             .set(m)

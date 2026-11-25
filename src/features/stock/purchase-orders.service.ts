@@ -3,7 +3,8 @@ import { sql } from '#src/db/sql.ts';
 import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { catalogueRepo } from '#src/features/catalogue/catalogue.service.ts';
-import { addDays, type DhakaNow } from '#src/lib/clock.ts';
+import { hqOid, tellStaff } from '#src/features/notifications/inbox.service.ts';
+import { addDays, type DhakaNow, taka as takaText } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
 import { moveStock, nextCode } from './stock.repo.ts';
@@ -190,6 +191,16 @@ export async function raisePurchaseOrder(deps: StockDeps, ctx: BranchContext, no
         }
         const out = await poOut(tx, row.oid, [ctx.branchOid]);
         await recordAudit(tx, ctx, { action: 'create', entity: 'purchase_order', entityKey: code, before: null, after: out });
+        await tellStaff(tx, ctx, {
+            to_branch_oid: await hqOid(tx),
+            kind: 'po_submitted',
+            subject: `${out.branch.name}: ${code} waits for approval`,
+            body: `${ctx.actor?.name ?? 'The branch'} raised ${code} to ${supplier.name}, ${takaText(total)}. Approve or reject it.`,
+            link: 'purchase-orders',
+            related_oid: row.oid,
+            dedupe_key: `po_submitted:${row.oid}`,
+            at: now.at
+        });
         return out;
     });
 }
@@ -206,6 +217,18 @@ export async function decidePurchaseOrder(deps: StockDeps, ctx: BranchContext, n
                 decision_note = ${note}, closed_at = ${approve ? null : now.at}
             where oid = ${oid}`);
         const out = await poOut(tx, oid, ctx.branchOids);
+        await tellStaff(tx, ctx, {
+            to_branch_oid: o.branch_oid,
+            kind: approve ? 'po_approved' : 'po_rejected',
+            subject: approve ? `${o.code} approved` : `${o.code} rejected`,
+            body: approve
+                ? `HQ approved ${o.code} to ${o.supplier_name}. Send it to the supplier, then receive the delivery.`
+                : `HQ rejected ${o.code} to ${o.supplier_name}: ${note ?? ''}`,
+            link: 'stock?tab=orders',
+            related_oid: o.oid,
+            dedupe_key: `po_decided:${o.oid}`,
+            at: now.at
+        });
         await recordAudit(tx, ctx, {
             action: approve ? 'approve' : 'reject',
             entity: 'purchase_order',

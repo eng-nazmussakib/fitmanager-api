@@ -5,7 +5,7 @@ import { authenticate, requireAbility, requireBranch } from '#src/auth/middlewar
 import type { AppDeps } from '#src/container.ts';
 import { branchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { memberDocuments } from '#src/features/files/files.service.ts';
-import { notificationsRepo } from '#src/features/notifications/notifications.service.ts';
+import { notificationsRepo, notificationWire } from '#src/features/notifications/notifications.service.ts';
 import { dhakaNow } from '#src/lib/clock.ts';
 import { ok, parse } from '#src/lib/http.ts';
 
@@ -114,7 +114,7 @@ export function membersRouter(deps: AppDeps): Router {
             res,
             await withBranchTx(deps.db, ctx, async tx => {
                 await memberAt(tx, ctx, oid, today());
-                return (await notificationsRepo.forMember(tx, oid, deps.clock())).map(n => ({ ...n, created_at: n.created_at.toISOString() }));
+                return (await notificationsRepo.forMember(tx, oid, deps.clock())).map(notificationWire);
             })
         );
     });

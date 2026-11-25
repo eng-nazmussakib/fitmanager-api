@@ -6,6 +6,8 @@ import { sql } from '#src/db/sql.ts';
 import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { claimKindFile, viewUrl } from '#src/features/files/files.service.ts';
+import { hqOid, tellStaff } from '#src/features/notifications/inbox.service.ts';
+import { memberContact, notify } from '#src/features/notifications/notifications.service.ts';
 import { addDays, daysBetween, dhakaNow, shortDate } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
@@ -43,6 +45,8 @@ export interface DisciplineDeps {
     cache: AppDeps['cache'];
     jwtSecret: string;
     apiPrefix: string;
+    /** "Now" for the messages' time (D-108). */
+    clock?: () => Date;
 }
 
 /** Who is acting, and as what on the ladder. */
@@ -487,6 +491,27 @@ export async function giveSanction(deps: DisciplineDeps, ctx: BranchContext, cal
         }
         if (i.staff_oid && input.level === 'suspension' && startsOn <= today) await refreshTokens.revokeAll(tx, i.staff_oid);
 
+        // The member hears of it in the portal (D-108 a), with the time they have to appeal (D-094).
+        const member = i.member_oid ? await memberContact(tx, i.member_oid) : null;
+        if (member) {
+            const what =
+                input.level === 'suspension' && endsOn
+                    ? `a suspension from ${shortDate(startsOn)} to ${shortDate(endsOn)}`
+                    : input.level === 'ban'
+                      ? `a ban ${scope === 'all' ? 'from every branch' : `from ${i.branch_name}`}${cancelled ? '; your membership there is cancelled' : ''}`
+                      : `a ${LEVEL_LABEL[input.level].toLowerCase()}`;
+            await notify(tx, {
+                branch_oid: i.branch_oid,
+                member,
+                kind: 'sanction',
+                subject: `${LEVEL_LABEL[input.level]} at ${i.branch_name}`,
+                body: `Dear ${member.name}, you were given ${what}. Reason: ${input.reason.replace(/[.!?]\s*$/, '')}. You can appeal under My record in the portal by ${shortDate(appealDeadline(today))}.`,
+                related_oid: row.oid,
+                dedupe_key: `sanction:${row.oid}`,
+                at: deps.clock?.()
+            });
+        }
+
         await recordAudit(tx, ctx, {
             action: 'sanction',
             entity: 'sanction',
@@ -568,6 +593,22 @@ export async function decideAppeal(
                 await tx.query(sql`update app_user set status = 'Active', updated_at = now() where oid = ${s.staff_oid}`);
         }
         const [code] = await tx.query<{ code: string }>(sql`select subject_code as code from incident where oid = ${s.incident_oid}`);
+        const member = s.member_oid ? await memberContact(tx, s.member_oid) : null;
+        if (member)
+            await notify(tx, {
+                branch_oid: s.branch_oid,
+                member,
+                kind: 'appeal_decided',
+                subject: input.decision === 'upheld' ? 'Your appeal was upheld' : 'Your appeal was not upheld',
+                body: `Dear ${member.name}, ${
+                    input.decision === 'upheld'
+                        ? `your appeal was upheld: the ${LEVEL_LABEL[s.level].toLowerCase()} no longer counts`
+                        : `the ${LEVEL_LABEL[s.level].toLowerCase()} stands`
+                }. ${input.note}`,
+                related_oid: appealOid,
+                dedupe_key: `appeal_decided:${appealOid}`,
+                at: deps.clock?.()
+            });
         await recordAudit(tx, ctx, {
             action: input.decision === 'upheld' ? 'uphold' : 'reject',
             entity: 'appeal',
@@ -684,6 +725,18 @@ export async function fileAppeal(
             values (${found.branch_oid}, ${found.member_branch_oid}, ${sanctionOid}, ${body}, ${actor.oid}, ${actor.name})`);
         const [code] = await tx.query<{ code: string }>(sql`select subject_code as code from incident where oid = ${found.incident_oid}`);
         await recordAudit(tx, ctx, { action: 'appeal', entity: 'appeal', entityKey: code?.code ?? sanctionOid, before: null, after: { level: found.level } });
+        // To whoever decides it (D-094): the branch's manager when the desk or a trainer gave it, else HQ.
+        const atBranch = found.level !== 'ban' && !found.hq_only && (found.given_role === 'desk' || found.given_role === 'trainer');
+        await tellStaff(tx, ctx, {
+            to_branch_oid: atBranch ? found.branch_oid : await hqOid(tx),
+            kind: 'appeal_filed',
+            subject: `Appeal: ${LEVEL_LABEL[found.level]} for ${code?.code ?? 'a case'}`,
+            body: `${actor.name} appealed the ${LEVEL_LABEL[found.level].toLowerCase()} given by ${found.given_by_name || 'staff'}. Decide it on the case.`,
+            link: `incidents/${found.incident_oid}`,
+            related_oid: sanctionOid,
+            dedupe_key: `appeal_filed:${sanctionOid}`,
+            at: deps.clock?.()
+        });
         const rows = await tx.query<SanctionRow>(sql`select ${SANCTION} where x.oid = ${sanctionOid}`);
         const [row] = rows;
         if (!row) throw new Error('appeal: the sanction vanished');

@@ -3,6 +3,7 @@ import { sql } from '#src/db/sql.ts';
 import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { catalogueRepo } from '#src/features/catalogue/catalogue.service.ts';
+import { tellStaff } from '#src/features/notifications/inbox.service.ts';
 import type { DhakaNow } from '#src/lib/clock.ts';
 import { AppError } from '#src/lib/http.ts';
 
@@ -162,6 +163,16 @@ export async function requestTransfer(deps: StockDeps, ctx: BranchContext, now: 
         }
         const result = await out(tx, row.oid, ctx.branchOid);
         await recordAudit(tx, ctx, { action: 'request', entity: 'stock_transfer', entityKey: code, before: null, after: result });
+        await tellStaff(tx, ctx, {
+            to_branch_oid: from.oid,
+            kind: 'transfer_requested',
+            subject: `${result.to.name} asks for stock: ${code}`,
+            body: `${ctx.actor?.name ?? result.to.name} asked for ${input.lines.length} product${input.lines.length === 1 ? '' : 's'}. Send what you can, or reject it.`,
+            link: 'stock?tab=transfers',
+            related_oid: row.oid,
+            dedupe_key: `transfer_requested:${row.oid}`,
+            at: now.at
+        });
         return result;
     });
 }
@@ -198,6 +209,16 @@ export async function sendTransfer(
             where oid = ${oid}`);
         const result = await out(tx, oid, ctx.branchOid);
         await recordAudit(tx, ctx, { action: 'send', entity: 'stock_transfer', entityKey: t.code, before: { status: t.status }, after: result });
+        await tellStaff(tx, ctx, {
+            to_branch_oid: t.to_branch_oid,
+            kind: 'transfer_sent',
+            subject: `${t.code} is on its way from ${t.from_name}`,
+            body: `${ctx.actor?.name ?? t.from_name} sent ${t.code}. Receive it when it arrives, and note any shortfall.`,
+            link: 'stock?tab=transfers',
+            related_oid: t.oid,
+            dedupe_key: `transfer_sent:${t.oid}`,
+            at: now.at
+        });
         return result;
     });
 }
@@ -272,6 +293,17 @@ export async function closeTransfer(deps: StockDeps, ctx: BranchContext, now: Dh
         await tx.query(sql`
             update stock_transfer set status = ${how === 'reject' ? 'rejected' : 'cancelled'}, closing_note = ${note}, closed_at = ${now.at} where oid = ${oid}`);
         const result = await out(tx, oid, ctx.branchOid);
+        if (how === 'reject')
+            await tellStaff(tx, ctx, {
+                to_branch_oid: t.to_branch_oid,
+                kind: 'transfer_rejected',
+                subject: `${t.from_name} rejected ${t.code}`,
+                body: `${t.from_name} cannot send ${t.code}: ${note}`,
+                link: 'stock?tab=transfers',
+                related_oid: t.oid,
+                dedupe_key: `transfer_rejected:${t.oid}`,
+                at: now.at
+            });
         await recordAudit(tx, ctx, {
             action: how,
             entity: 'stock_transfer',

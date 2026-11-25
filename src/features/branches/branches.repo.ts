@@ -33,6 +33,8 @@ export interface BranchProfile extends BranchRef {
     facilities: string[];
     hours: HoursBlock[];
     ladies_hours: HoursBlock[];
+    /** The branch page's text (phase 7c, D-109), written by its manager or HQ. */
+    description: string | null;
 }
 
 /** What the public site may show: no dues limit, no status. */
@@ -40,9 +42,9 @@ export type PublicBranch = Omit<BranchProfile, 'dues_limit' | 'status'>;
 
 export const REF = sql.raw('b.oid, b.code, b.slug, b.name, b.kind');
 const PROFILE = sql.raw(`b.oid, b.code, b.slug, b.name, b.kind, b.status, b.address, b.area, b.phone, b.email, b.map_url,
-    b.opened_on::text as opened_on, b.capacity, b.dues_limit::float8 as dues_limit, b.facilities, b.hours, b.ladies_hours`);
+    b.opened_on::text as opened_on, b.capacity, b.dues_limit::float8 as dues_limit, b.facilities, b.hours, b.ladies_hours, b.description`);
 const PUBLIC = sql.raw(`b.oid, b.code, b.slug, b.name, b.kind, b.address, b.area, b.phone, b.email, b.map_url,
-    b.opened_on::text as opened_on, b.capacity, b.facilities, b.hours, b.ladies_hours`);
+    b.opened_on::text as opened_on, b.capacity, b.facilities, b.hours, b.ladies_hours, b.description`);
 
 /** `branch` has no RLS: which branches a caller may see is decided by the caller's assignments (`oids`). */
 export const branchesRepo = {

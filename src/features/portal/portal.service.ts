@@ -9,7 +9,7 @@ import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { livePhoto } from '#src/features/files/files.repo.ts';
 import { viewUrl } from '#src/features/files/files.service.ts';
 import { memberAt, toWire } from '#src/features/members/members.service.ts';
-import { notificationsRepo } from '#src/features/notifications/notifications.service.ts';
+import { notificationsRepo, notificationWire } from '#src/features/notifications/notifications.service.ts';
 import { salesRepo } from '#src/features/sales/sales.repo.ts';
 import { invoiceWire, subscriptionWire } from '#src/features/sales/sales.service.ts';
 import { nextBooking } from '#src/features/scheduling/classes.service.ts';
@@ -142,12 +142,22 @@ export async function attendance(deps: PortalDeps, user: { oid: string; name: st
     return memberAttendance({ db: deps.db, jwtSecret: deps.jwtSecret, apiPrefix: deps.apiPrefix }, ctx, now, memberOid, 84);
 }
 
-/** `GET /v1/me/notifications`: the member's in-app messages (D-075). */
-export async function notifications(deps: PortalDeps, user: { oid: string; name: string; member_oid: string | null }, now: DhakaNow) {
+/**
+ * The member's context for their own messages: the home branch, reading every branch, because a message is written
+ * where it happened (a class cancelled at another branch). Every query filters on the member's own oid.
+ */
+export async function memberEverywhere(deps: Deps, user: { oid: string; name: string; member_oid: string | null }) {
     const { ctx, memberOid } = await memberContext(deps, user);
+    const all = await deps.db.query<{ oid: string }>(sql`select oid from branch`);
+    return { ctx: { ...ctx, branchOids: [ctx.branchOid, ...all.map(b => b.oid).filter(b => b !== ctx.branchOid)] }, memberOid };
+}
+
+/** `GET /v1/me/notifications`: the member's in-app messages (D-075), with their read state (D-108). */
+export async function notifications(deps: PortalDeps, user: { oid: string; name: string; member_oid: string | null }, now: DhakaNow) {
+    const { ctx, memberOid } = await memberEverywhere(deps, user);
     return withBranchTx(deps.db, ctx, async tx => {
         await memberAt(tx, ctx, memberOid, now.date);
-        return (await notificationsRepo.forMember(tx, memberOid, now.at)).map(n => ({ ...n, created_at: n.created_at.toISOString() }));
+        return (await notificationsRepo.forMember(tx, memberOid, now.at)).map(notificationWire);
     });
 }
 

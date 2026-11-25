@@ -23,6 +23,7 @@ import { filesRouter } from './features/files/files.routes.ts';
 import { healthRouter } from './features/health/health.routes.ts';
 import { joinRouter } from './features/join/join.routes.ts';
 import { membersRouter } from './features/members/members.routes.ts';
+import { notificationsRouter } from './features/notifications/notifications.routes.ts';
 import { plansRouter } from './features/plans/plans.routes.ts';
 import { policiesRouter } from './features/policies/policies.routes.ts';
 import { portalRouter } from './features/portal/portal.routes.ts';
@@ -35,6 +36,7 @@ import { settingsRouter } from './features/settings/settings.routes.ts';
 import { siteRouter } from './features/site/site.routes.ts';
 import { staffRouter } from './features/staff/staff.routes.ts';
 import { stockRouter } from './features/stock/stock.routes.ts';
+import { websiteRouter } from './features/website/website.routes.ts';
 import { errorHandler, notFound } from './lib/errors.ts';
 import { rootLogger, runWithRequestContext } from './lib/logger.ts';
 
@@ -113,6 +115,8 @@ export function createApp(deps: AppDeps): Express {
     api.use(reconciliationRouter(deps));
     api.use(reportsRouter(deps));
     api.use(exportsRouter(deps));
+    api.use(notificationsRouter(deps));
+    api.use(websiteRouter(deps));
     api.use(auditRouter(deps));
     api.use(staffRouter(deps));
     app.use(config.apiPrefix, api);
