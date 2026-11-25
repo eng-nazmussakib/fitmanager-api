@@ -12,7 +12,7 @@ import type { DeliveryInput, PoCreate } from './stock.schema.ts';
 import type { StockDeps } from './stock.service.ts';
 
 /**
- * Purchase orders (phase 6, D-100). A branch manager raises one to a supplier (`create PurchaseOrder`); HQ approves or
+ * Purchase orders. A branch manager raises one to a supplier (`create PurchaseOrder`); HQ approves or
  * rejects it (`update PurchaseOrder` at HQ). It is sent by hand: the web app makes a PDF or copies the text, and the
  * manager marks it sent. The branch receives it in one or more deliveries, each line at the cost entered then
  * (default: the ordered cost), which adds the stock (`received`). It closes when everything has arrived, or when it is

@@ -1,7 +1,7 @@
 import { allowedLevels, appealDeadline, banScopes, giverRole, mayDecideAppeal, mayLift, strikes, suggestLevel } from './ladder.ts';
 
-// The same cases as the web mock's ladder.spec.ts (D-092 to D-094).
-describe('the discipline ladder (D-092)', () => {
+// The same cases as the web mock's ladder.spec.ts.
+describe('the discipline ladder', () => {
     it('suggests one step per strike, capped at a ban', () => {
         expect([0, 1, 2, 3, 7].map(suggestLevel)).toEqual(['verbal', 'written', 'suspension', 'ban', 'ban']);
     });

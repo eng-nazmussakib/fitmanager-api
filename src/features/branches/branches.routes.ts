@@ -12,7 +12,7 @@ import { branchesRepo } from './branches.repo.ts';
 import { oidParams, profileSchema, slugParams } from './branches.schema.ts';
 
 /**
- * Branch profiles (phase 2 step 1, migration 008): contact details, capacity, dues limit, facilities and hours.
+ * Branch profiles (migration 008): contact details, capacity, dues limit, facilities and hours.
  * - `GET /v1/branches`, `/v1/branches/:oid`: the branches the signed-in user is assigned to (any staff).
  * - `GET /v1/public/branches`, `/:slug`: active selling branches for the public site, without the dues limit.
  * - `PATCH /v1/hq/branches/:oid`: HQ changes a profile (`update Branch`), audited at HQ.
@@ -35,9 +35,9 @@ export function branchesRouter(deps: AppDeps): Router {
         const { slug } = parse(slugParams, req.params);
         const branch = await branchesRepo.publicBySlug(db, slug);
         if (!branch) throw new AppError(404, 'Branch not found');
-        // Its public trainers (phase 3, D-078), as the web mock answers.
+        // Its public trainers, as the web mock answers.
         const trainers = await publicTrainers({ db, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix }, slug);
-        // Its photos (phase 7c, D-109): the branch's gallery.
+        // Its photos: the branch's gallery.
         const photos = await gallery({ db, apiPrefix: deps.config.apiPrefix }, { slug });
         res.set('Cache-Control', `public, max-age=${PUBLIC_CACHE_SECONDS}`);
         ok(res, { ...branch, trainers, photos });

@@ -9,7 +9,7 @@ import { AppError, ok, parse } from '#src/lib/http.ts';
 import { isoDate, queryInt } from '#src/lib/query.ts';
 
 /**
- * Reading the audit log (phase 1). Two routes, one query:
+ * Reading the audit log. Two routes, one query:
  * - `GET /v1/hq/audit`: at HQ, every branch the user reaches (`branchContext`), optionally one of them (`branch_oid`).
  * - `GET /v1/branch/audit`: at a branch, that branch only.
  * Both run inside `withBranchTx`, so RLS (migration 005) limits the rows even if the filter below were wrong.
@@ -83,7 +83,7 @@ function auditFilter(branchOids: readonly string[], q: Query) {
     ]);
 }
 
-/** The audit log, newest first, a page at a time (the screens; exports page through it, D-107). */
+/** The audit log, newest first, a page at a time (the screens; exports page through it). */
 export async function readAudit(deps: Pick<AppDeps, 'db'>, ctx: BranchContext, branchOids: readonly string[], q: Query) {
     const filter = auditFilter(branchOids, q);
     const rows = await withBranchTx(deps.db, ctx, tx =>

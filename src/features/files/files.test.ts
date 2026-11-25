@@ -46,7 +46,7 @@ async function upload(headers: Record<string, string>, body: Buffer, meta: { kin
     return { oid: file.oid, key, target, complete: () => request(t.app).post(`/api/v1/files/${file.oid}/complete`).set(headers) };
 }
 
-describe('files: signed upload, checked on completion (D-058, D-069)', () => {
+describe('files: signed upload, checked on completion', () => {
     it('start → a pending row and a signed URL; complete → ready; then served with its checked type', async () => {
         const { oid, target, complete } = await upload(desk, PDF);
         expect(target).toMatchObject({ method: 'PUT', headers: { 'Content-Type': 'application/pdf' } });
@@ -69,7 +69,7 @@ describe('files: signed upload, checked on completion (D-058, D-069)', () => {
         await complete().expect(200); // completing twice is harmless
     });
 
-    it('refuses types and sizes outside D-069 before handing out a URL', async () => {
+    it('refuses types and sizes outside the file limits before handing out a URL', async () => {
         const start = (body: object) => request(t.app).post('/api/v1/files').set(desk).send(body);
         await start({ kind: 'member_photo', name: 'p.pdf', content_type: 'application/pdf', size: 10 }).expect(415);
         await start({ kind: 'member_document', name: 'x.webp', content_type: 'image/webp', size: 10 }).expect(415);
@@ -205,7 +205,7 @@ describe('files: signed view links for <img> tags', () => {
     });
 });
 
-describe('files: one storage limit for every branch together (D-074)', () => {
+describe('files: one storage limit for every branch together', () => {
     let s: TestApp;
     let gul: Record<string, string>;
     let dha: Record<string, string>;
@@ -258,7 +258,7 @@ describe('files: one storage limit for every branch together (D-074)', () => {
     });
 });
 
-describe('files: guest uploads expire after 7 days (D-077)', () => {
+describe('files: guest uploads expire after 7 days', () => {
     let g: TestApp;
     const gStore = createMemoryStore('s3');
     beforeAll(async () => {

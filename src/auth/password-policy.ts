@@ -1,7 +1,7 @@
 import * as v from 'valibot';
 
 /**
- * What a new password must be (D-054): typed by an admin as a temporary password, or chosen by the person.
+ * What a new password must be: typed by an admin as a temporary password, or chosen by the person.
  * 8–200 characters with at least one letter and one digit. Length matters more than character classes (NIST
  * SP 800-63B); the letter + digit rule only stops "12345678" and "password".
  */

@@ -61,7 +61,7 @@ beforeAll(async () => {
 });
 afterAll(() => t.close());
 
-describe('exports (D-107)', () => {
+describe('exports', () => {
     it('member data leaves only through branch managers and HQ: not the desk or a trainer', async () => {
         await request(t.app).post('/api/v1/exports/members').set(desk).send({ format: 'xlsx' }).expect(403);
         await request(t.app).post('/api/v1/exports/members').set(trainer).send({ format: 'xlsx' }).expect(403);

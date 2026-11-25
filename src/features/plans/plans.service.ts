@@ -9,7 +9,7 @@ import { type Plan, plansRepo, type PlanTemplate, type Promo } from './plans.rep
 import { type PlanUpdate, type PromoCreate, promoRules, type PromoUpdate, type TemplateCreate, type TemplateUpdate } from './plans.schema.ts';
 
 /**
- * Plans, plan templates and promo codes (phase 2 step 1; D-043, D-044, D-063). Only HQ writes any of them: the
+ * Plans, plan templates and promo codes. Only HQ writes any of them: the
  * routes sit behind `requireBranch('HQ')`. Every write is audited at HQ, in the same transaction.
  */
 

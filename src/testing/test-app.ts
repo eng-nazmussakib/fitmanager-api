@@ -12,7 +12,7 @@ import { createDb, type Db } from '#src/db/db.ts';
 import { sql } from '#src/db/sql.ts';
 import { createMemoryStore } from '#src/lib/file-store.ts';
 
-// The schema and demo data come from the infra repo's runner, as in every environment (D-039).
+// The schema and demo data come from the infra repo's runner, as in every environment.
 // The repos sit side by side (clone fitmanager-infra next to this one).
 import { migrate, seed, type SqlDatabase } from '../../../fitmanager-infra/db/tools/runner.ts';
 
@@ -149,7 +149,7 @@ export const bearer = (token: string): [string, string] => ['Authorization', `Be
 export const atBranch = (token: string, branchOid: string): Record<string, string> => ({ Authorization: `Bearer ${token}`, [BRANCH_HEADER]: branchOid });
 
 /**
- * Suspends a member (phase 5, D-093) the way a manager does: an incident at the manager's branch, then a suspension
+ * Suspends a member the way a manager does: an incident at the manager's branch, then a suspension
  * step on it (the suggested step for a first case is a verbal warning, so the choice is explained). `days` long,
  * from today. Returns the incident.
  */
@@ -233,7 +233,7 @@ export async function portalMember(
 }
 
 /**
- * Stocks a branch (phase 6, D-100) the way it happens: the manager raises a purchase order, HQ approves it, and it
+ * Stocks a branch the way it happens: the manager raises a purchase order, HQ approves it, and it
  * is received in one delivery. `lines` name products by code (`PRD-000001`). Returns the order.
  */
 export async function stockUp(

@@ -31,7 +31,7 @@ export interface FileRow {
 }
 
 /**
- * Guest uploads on the hosted demo (D-077) are stored under this prefix, and the bucket's lifecycle rule deletes them
+ * Guest uploads on the hosted demo are stored under this prefix, and the bucket's lifecycle rule deletes them
  * after `GUEST_FILE_DAYS` (rule `expire-guest-uploads`, fitmanager-infra/cloudflare/demo-deploy.md). The rest are kept.
  */
 export const GUEST_KEY_PREFIX = 'guest/';
@@ -74,7 +74,7 @@ export const filesRepo = {
 
     /**
      * Bytes the file store holds or has been promised, across EVERY branch: the bucket and R2's free allowance are
-     * shared, so the limit is too (D-074). Counts ready files, plus pending ones from the last day (an upload that
+     * shared, so the limit is too. Counts ready files, plus pending ones from the last day (an upload that
      * may still complete). Rejected and deleted files are removed from the store, so they do not count.
      * Takes the transaction-wide lock first, so two uploads cannot both squeeze under the limit. It widens the RLS
      * context to every branch for one aggregate and then puts the caller's context back: only a total leaves.
@@ -115,7 +115,7 @@ export const filesRepo = {
             where oid = ${oid}`);
     },
 
-    /** Ready documents of one member (the D-069 count). */
+    /** Ready documents of one member (at most 10 per member). */
     countReady: async (tx: Queryable, memberOid: string, kind: FileKind) => {
         const [row] = await tx.query<{ n: number }>(
             sql`select count(*)::int as n from file where member_oid = ${memberOid} and kind = ${kind} and status = 'ready' and not ${sql.raw(expired('file'))}`

@@ -48,7 +48,7 @@ async function member(opts: { sell?: boolean; pay?: 'all' | number } = {}) {
     return m;
 }
 
-describe('evaluate and check in (D-059, D-061)', () => {
+describe('evaluate and check in', () => {
     it('an active member at their branch: allowed; checked in; then "already inside" blocks a second scan anywhere', async () => {
         const m = await member();
         const ev = await request(t.app).post('/api/v1/attendance/evaluate').set(desk).send({ code: m.code }).expect(200);
@@ -68,7 +68,7 @@ describe('evaluate and check in (D-059, D-061)', () => {
         await request(t.app).post(`/api/v1/attendance/${ci.body.data.oid}/check-out`).set(desk).expect(409);
     });
 
-    it('a visitor at another branch (D-059, D-066): allowed, sees only the outcome; the visit shows at both branches', async () => {
+    it('a visitor at another branch: allowed, sees only the outcome; the visit shows at both branches', async () => {
         const m = await member();
         const ev = await request(t.app).post('/api/v1/attendance/evaluate').set(deskDha).send({ code: m.code }).expect(200);
         expect(ev.body.data).toMatchObject({
@@ -141,7 +141,7 @@ describe('evaluate and check in (D-059, D-061)', () => {
         });
     });
 
-    it('a suspension blocks every branch and is not overridden (D-093); the membership keeps running', async () => {
+    it('a suspension blocks every branch and is not overridden; the membership keeps running', async () => {
         const m = await member();
         await suspendMember(t.app, manager, m.code, { today: '2026-11-19', now: '2026-11-19T11:00:00+06:00', reason: 'Card lent to a friend' });
         for (const [at, who] of [
@@ -166,7 +166,7 @@ describe('evaluate and check in (D-059, D-061)', () => {
     });
 });
 
-describe('back-dated and bulk entry (D-070 b)', () => {
+describe('back-dated and bulk entry', () => {
     it('a manager enters past visits, up to 7 days back, with a reason; the desk cannot', async () => {
         const a = await member();
         const b = await member();
@@ -201,7 +201,7 @@ describe('back-dated and bulk entry (D-070 b)', () => {
     });
 });
 
-describe('occupancy and closing finished visits (D-070 a, D-075)', () => {
+describe('occupancy and closing finished visits', () => {
     it('inside and today counts; reading the floor after closing time closes the visits at the closing time, once', async () => {
         let now = new Date('2026-11-19T12:00:00Z');
         const fresh = await createTestApp({}, { clock: () => now });
@@ -246,7 +246,7 @@ describe('occupancy and closing finished visits (D-070 a, D-075)', () => {
 });
 
 describe('attendance: RLS and audit', () => {
-    it('a check-in is read by the visited branch and the home branch, not a third one (D-066)', async () => {
+    it('a check-in is read by the visited branch and the home branch, not a third one', async () => {
         const m = await member();
         await request(t.app).post('/api/v1/attendance/check-in').set(deskDha).send({ code: m.code }).expect(201);
         const seen = (oid: string) =>

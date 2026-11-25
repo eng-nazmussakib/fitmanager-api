@@ -9,7 +9,7 @@ import { AppError } from '#src/lib/http.ts';
 import type { RatingCreate } from './feedback.schema.ts';
 
 /**
- * NPS and ratings (phase 5, D-096). Both are worked out when read (D-075):
+ * NPS and ratings. Both are worked out when read:
  * - the portal's 0–10 card shows after 30 days of membership, at most once every 90 days (a dismissal counts);
  * - an attended class or a completed PT session can be rated 1–5 for 7 days after it, once.
  * A trainer sees their own averages only; managers and HQ see the scores, names and comments.
@@ -161,7 +161,7 @@ async function trainerAverages(tx: Queryable, from: Date, trainerOid: string | n
 
 /**
  * `GET /v1/feedback` (`read Feedback`): managers and HQ get the NPS, the answers with names and comments, the ratings
- * and each trainer's averages; a trainer gets their own averages only (D-096).
+ * and each trainer's averages; a trainer gets their own averages only.
  */
 export async function feedbackReport(deps: FeedbackDeps, ctx: BranchContext, caller: { userOid: string; trainerOnly: boolean }, days: number, now: Date) {
     const from = new Date(now.getTime() - days * 86_400_000);

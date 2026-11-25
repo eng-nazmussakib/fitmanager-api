@@ -135,7 +135,7 @@ beforeAll(async () => {
 });
 afterAll(() => t.close());
 
-describe('reports (D-106)', () => {
+describe('reports', () => {
     it('are for branch managers and HQ: not the desk or trainers, and HQ reports only at HQ', async () => {
         await request(t.app).get('/api/v1/reports/revenue').set(desk).expect(403);
         await request(t.app).get('/api/v1/reports/revenue').set(trainer).expect(403);
@@ -226,7 +226,7 @@ describe('reports (D-106)', () => {
     });
 });
 
-describe('a trainer’s numbers (D-106, item 8)', () => {
+describe('a trainer’s numbers', () => {
     let sam = '';
     let tom = '';
     beforeAll(async () => {

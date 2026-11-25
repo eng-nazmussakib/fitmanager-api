@@ -62,7 +62,7 @@ const give = (as: Record<string, string>, oid: string, body: Record<string, unkn
 const evaluate = async (as: Record<string, string>, code: string) =>
     ((await request(t.app).post('/api/v1/attendance/evaluate').set(as).send({ code }).expect(200)).body.data.failures as { rule: string }[]).map(f => f.rule);
 
-describe('cases about members (D-092, D-093)', () => {
+describe('cases about members', () => {
     it('the desk records and warns; a manager climbs the ladder; a home-branch ban cancels the membership', async () => {
         const m = await portalMember(t.app, desk, phone(), { name: 'Ladder Tester' });
         const clause = ((await request(t.app).get('/api/v1/policy-clauses').set(desk).expect(200)).body.data as { oid: string; label: string }[])[2]!;
@@ -150,7 +150,7 @@ describe('cases about members (D-092, D-093)', () => {
     });
 });
 
-describe('appeals (D-094)', () => {
+describe('appeals', () => {
     it('a member appeals in the portal within 7 days; not the giver but HQ or another decides; upheld overturns', async () => {
         const m = await portalMember(t.app, desk, phone());
         const c = (await record(manager, { subject_kind: 'member', member_code: m.code }).expect(201)).body.data as Detail;
@@ -195,7 +195,7 @@ describe('appeals (D-094)', () => {
     });
 });
 
-describe('cases about staff (D-092, D-093)', () => {
+describe('cases about staff', () => {
     it('a case about a branch manager goes to HQ: the branch does not see it; the manager sees the step in My record', async () => {
         const mgr = await userOid('manager.gulshan');
         const staff = (await request(t.app).get('/api/v1/incidents/staff').set(desk).expect(200)).body.data as { oid: string; role: string }[];

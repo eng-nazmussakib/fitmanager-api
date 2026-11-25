@@ -4,13 +4,13 @@ import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { addDays, dhakaInstant } from '#src/lib/clock.ts';
 
 /**
- * The phase 2 exit check (D-071): does the money reconcile? Read only, for HQ, over a range of Dhaka days.
+ * Does the money reconcile? Read only, for HQ, over a range of Dhaka days.
  * 1. every invoice's paid amount (payments minus refunds) is between 0 and its total;
  * 2. each cash closing's expected cash equals the cash the system has for that staff member and day
  *    (cash payments minus cash refunds they took), and what they counted is shown beside it;
  * 3. every money write has its audit row: an invoice (create / upgrade; a locker rental's or a POS sale's invoice: invoice create), each later
  *    payment (pay), each refund (a POS return's too), each cash closing;
- * 4. every POS sale took its items off the stock, and every return put the undamaged ones back (phase 6, D-102).
+ * 4. every POS sale took its items off the stock, and every return put the undamaged ones back.
  * Each check lists at most 100 offending rows; `ok` is true only when every check is clean.
  */
 
@@ -77,7 +77,7 @@ async function unaudited(tx: Queryable, branches: readonly string[], from: Date,
     return tx.query<{ branch_code: string; kind: string; ref: string; at: Date }>(sql`
         with inv as (
             select i.oid, i.branch_oid, i.number, i.member_code, i.issued_at,
-                   -- A plan's invoice is audited with its sale; a locker rental's (D-082) as the invoice itself.
+                   -- A plan's invoice is audited with its sale; a locker rental's as the invoice itself.
                    exists (select 1 from audit_log a where a.branch_oid = i.branch_oid and a.entity_key = i.member_code || '/' || i.number
                            and ((a.entity = 'subscription' and a.action in ('create', 'upgrade')) or (a.entity = 'invoice' and a.action = 'create'))) as sold
             from invoice i where i.branch_oid = any (${branches}::uuid[])

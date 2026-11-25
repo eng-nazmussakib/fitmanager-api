@@ -54,7 +54,7 @@ const add = (body: Record<string, unknown>, as = manager) =>
         .set(as)
         .send({ name: 'Treadmill 1', category: 'cardio', ...body });
 
-describe('service due, worked out when read (D-098)', () => {
+describe('service due, worked out when read', () => {
     it.each([
         ['no schedule', { service_every_days: null, last_serviced_on: null }, null, 'none'],
         ['from the last service', { service_every_days: 30, last_serviced_on: '2026-10-01' }, '2026-10-31', 'due'],
@@ -67,7 +67,7 @@ describe('service due, worked out when read (D-098)', () => {
     });
 });
 
-describe('the equipment register (D-098)', () => {
+describe('the equipment register', () => {
     it('a manager adds equipment with a room, a warranty and a service schedule; the desk only reads it', async () => {
         const rooms = (await request(t.app).get('/api/v1/rooms').set(manager).expect(200)).body.data as { oid: string; name: string }[];
         const e = (
@@ -120,7 +120,7 @@ describe('the equipment register (D-098)', () => {
     });
 });
 
-describe('maintenance tickets (D-098)', () => {
+describe('maintenance tickets', () => {
     it('any staff raises one; out of order while open; the manager fixes it and it is back in use', async () => {
         const e = (await add({ name: 'Leg press' }).expect(201)).body.data as Equipment;
         const byTrainer = (await request(t.app).post(`/api/v1/equipment/${e.oid}/tickets`).set(trainer).send({ description: 'Seat squeaks' }).expect(201)).body

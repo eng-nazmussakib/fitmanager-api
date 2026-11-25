@@ -17,8 +17,8 @@ import type { MeasurementCreate } from './training.schema.ts';
 import { staffSource } from './workouts.service.ts';
 
 /**
- * Body measurements (phase 4, D-089): weight, body fat and tape measurements on a day, with up to 3 progress photos
- * (front, side, back; small, D-085). Recorded by the member (portal), their trainer or the desk; the source is shown.
+ * Body measurements: weight, body fat and tape measurements on a day, with up to 3 progress photos
+ * (front, side, back; small). Recorded by the member (portal), their trainer or the desk; the source is shown.
  * The photos are private: the member, their home branch's desk and managers, and their own trainer (another trainer
  * at the branch sees the numbers, not the photos). BMI comes from the member's height, when read.
  */

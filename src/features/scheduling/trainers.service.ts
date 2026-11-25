@@ -11,7 +11,7 @@ import { schedulingRepo, type TrainerRow } from './scheduling.repo.ts';
 import type { TrainerCreate, TrainerUpdate } from './scheduling.schema.ts';
 
 /**
- * Trainers (phase 3, D-078): a profile on a staff account with the TRAINER role, owned by its home branch, with a
+ * Trainers: a profile on a staff account with the TRAINER role, owned by its home branch, with a
  * public page; weekly availability per branch (for PT), days off, and assigned clients. A trainer edits only their
  * own profile and availability (`self`); a branch manager or HQ edits any at the branch.
  */
@@ -258,7 +258,7 @@ export async function removeLeave(deps: SchedulingDeps, ctx: BranchContext, oid:
     });
 }
 
-/** A member's assigned trainer (D-078 4): set or cleared at the member's home branch. */
+/** A member's assigned trainer (set or cleared at the member's home branch. */
 export async function assignTrainer(deps: SchedulingDeps, ctx: BranchContext, memberOid: string, trainerOid: string | null) {
     return withBranchTx(deps.db, ctx, async tx => {
         const [m] = await tx.query<{ code: string; name: string; trainer_oid: string | null; anonymised: boolean }>(sql`

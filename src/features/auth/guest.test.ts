@@ -4,7 +4,7 @@ import { sql } from '#src/db/sql.ts';
 import { DEMO_BRANCHES } from '#src/testing/demo.ts';
 import { atBranch, bearer, createTestApp, signIn, type TestApp } from '#src/testing/test-app.ts';
 
-// Guest access (D-076): the accounts the hosted demo's /demo picker signs in as, without a password.
+// Guest access: the accounts the hosted demo's /demo picker signs in as, without a password.
 const GUESTS = 'owner,admin.hq,manager.gulshan,desk.gulshan,trainer.gulshan,MEM-GUL-000001';
 const LOCKED = 'This is a shared guest account of the demo, so it cannot be changed.';
 

@@ -62,7 +62,7 @@ async function sale(memberOid: string, body: Record<string, unknown> = {}, heade
     return { ...(res.body.data as SaleOut), message: res.body.message as string };
 }
 
-describe('quote and sale (D-057, D-061)', () => {
+describe('quote and sale', () => {
     it('the quote is the server’s: plan + admission + 15 % VAT, and says whether admission is due', async () => {
         const m = await member();
         const p = plan('GUL-SIN-1M');
@@ -128,7 +128,7 @@ describe('quote and sale (D-057, D-061)', () => {
         expect(promo.invoice.lines.map(l => l.label)).toEqual(['Single · Monthly']);
     });
 
-    it('VAT-inclusive (D-057): the total is the price, the VAT is inside it; the invoice keeps the mode', async () => {
+    it('VAT-inclusive: the total is the price, the VAT is inside it; the invoice keeps the mode', async () => {
         const owner = atBranch((await signIn(t.app)).access_token, DEMO_BRANCHES.HQ.oid);
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ vat_inclusive: true }).expect(200);
         const m = await member();
@@ -175,7 +175,7 @@ describe('dues and payments', () => {
     });
 });
 
-describe('freeze, cancel, upgrade (D-063, D-067)', () => {
+describe('freeze, cancel, upgrade', () => {
     it('freeze: a manager, within the HQ range, at most twice, moves the end date', async () => {
         const m = await member();
         const out = await sale(m.oid);
@@ -246,7 +246,7 @@ describe('freeze, cancel, upgrade (D-063, D-067)', () => {
     });
 });
 
-describe('refunds (D-067 a)', () => {
+describe('refunds', () => {
     it('the desk: a full refund within 3 days, not yet used; it ends the plan', async () => {
         const m = await member();
         const out = await sale(m.oid, { payment: { method: 'cash', amount: 3000 } });

@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of the POS (phase 6, D-102). */
+/** Request schemas of the POS. */
 const optionalText = (max: number) =>
     v.optional(
         v.pipe(

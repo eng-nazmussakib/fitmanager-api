@@ -134,7 +134,7 @@ export const staffRepo = {
         await db.query(sql`update app_user set status = ${status}, updated_at = now() where oid = ${oid}`);
     },
 
-    /** An admin-typed temporary password (D-054): the person must replace it at their next sign-in. */
+    /** An admin-typed temporary password: the person must replace it at their next sign-in. */
     async setTemporaryPassword(db: Queryable, oid: string, hash: string): Promise<void> {
         await db.query(sql`update app_user set password_hash = ${hash}, must_change_password = true, updated_at = now() where oid = ${oid}`);
     },

@@ -21,7 +21,7 @@ import {
 import { scopeOf, staffService } from './staff.service.ts';
 
 /**
- * Staff management (phase 1, D-054, D-055).
+ * Staff management.
  * - `/v1/hq/staff`: at HQ. OWNER manages everyone; HQ_ADMIN manages branch staff (BRANCH_MANAGER, FRONT_DESK,
  *   TRAINER) at any branch. Assignments are set as a whole (`PUT …/assignments`).
  * - `/v1/branch/staff`: at a branch, the people assigned there. BRANCH_MANAGER manages FRONT_DESK and TRAINER;
@@ -35,7 +35,7 @@ export function staffRouter(deps: AppDeps): Router {
     const service = staffService(deps);
     const read = requireAbility('read', 'Staff');
     const write = requireAbility('manage', 'Staff');
-    // The demo's shared guest accounts cannot be changed by anyone (D-076).
+    // The demo's shared guest accounts cannot be changed by anyone.
     const locked = protectGuest(deps, 'user');
 
     for (const level of ['hq', 'branch'] as const) {

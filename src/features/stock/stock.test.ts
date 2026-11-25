@@ -46,7 +46,7 @@ interface Level {
 const level = async (as: Record<string, string>, oid: string) =>
     ((await request(t.app).get('/api/v1/stock').set(as).expect(200)).body.data as { rows: Level[] }).rows.find(r => r.product_oid === oid)!;
 
-describe('purchase orders (D-100)', () => {
+describe('purchase orders', () => {
     let po: Po;
 
     it('a manager raises one; it waits for HQ; HQ approves it; the manager marks it sent', async () => {
@@ -141,7 +141,7 @@ describe('purchase orders (D-100)', () => {
     });
 });
 
-describe('stock (D-101)', () => {
+describe('stock', () => {
     it('adjustments with a reason; never below zero; only a count adds; the ledger shows each move', async () => {
         const whey = product('PRD-000001');
         await request(t.app).post(`/api/v1/stock/${whey}/adjust`).set(manager).send({ qty: -1, reason: 'damaged', note: 'Tub split' }).expect(200);
@@ -178,7 +178,7 @@ describe('stock (D-101)', () => {
     });
 });
 
-describe('transfers between branches (D-101)', () => {
+describe('transfers between branches', () => {
     interface Transfer {
         oid: string;
         code: string;

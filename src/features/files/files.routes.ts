@@ -34,16 +34,16 @@ const KIND_RULES: Record<FileKind, { write: [Action, Subject]; read: [Action, Su
     measurement_photo: { write: ['create', 'Measurement'], read: ['read', 'Measurement'], remove: ['update', 'Measurement'], hq: false },
     incident_evidence: { write: ['create', 'Incident'], read: ['read', 'Incident'], remove: ['manage', 'Incident'], hq: false },
     complaint_photo: { write: ['create', 'Complaint'], read: ['read', 'Complaint'], remove: ['update', 'Complaint'], hq: false },
-    // Phase 6: product photos at HQ (the catalogue), equipment and ticket photos at a branch.
+    // Product photos at HQ (the catalogue), equipment and ticket photos at a branch.
     product_photo: { write: ['update', 'Product'], read: ['read', 'Product'], remove: ['update', 'Product'], hq: true },
     equipment_photo: { write: ['update', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false },
     ticket_photo: { write: ['create', 'Equipment'], read: ['read', 'Equipment'], remove: ['update', 'Equipment'], hq: false },
-    // Phase 7c: website images, at HQ (posts, offers, any branch's gallery) or at a branch (its own photos).
+    // Website images, at HQ (posts, offers, any branch's gallery) or at a branch (its own photos).
     site_image: { write: ['update', 'Website'], read: ['read', 'Website'], remove: ['update', 'Website'], hq: true }
 };
 
 /**
- * Files (phase 2 step 2; D-058, D-069). Member photos and documents of the branch in `X-Branch-Id`:
+ * Files. Member photos and documents of the branch in `X-Branch-Id`:
  * - `POST /v1/files` → `{ file, upload }`: a pending row and where to PUT the bytes (`create Member`);
  * - `PUT /v1/files/:oid/content?token=`: the local store's stand-in for a signed bucket URL (no session; the
  *   token names the file and expires in 10 minutes);
@@ -72,7 +72,7 @@ export function filesRouter(deps: AppDeps): Router {
     router.post('/v1/files', ...branch, async (req, res) => {
         const body = parse(startSchema, req.body);
         if (!may(req, 'write')(body.kind)) throw new AppError(403, 'You do not have permission to do this');
-        // A guest's upload is kept 7 days only (D-077).
+        // A guest's upload is kept 7 days only.
         ok(
             res,
             await startUpload(fileDeps, branchContext(req), body, isGuest(deps.config, currentUser(req).username)),
@@ -116,7 +116,7 @@ export function filesRouter(deps: AppDeps): Router {
     });
 
     // `<img src>` and "open in a new tab": the token from `viewUrl()` is the permission (1 hour).
-    // Phase 7c (D-109): a website image, public, for the public pages (prerendered ones point at this URL).
+    // A website image, public, for the public pages (prerendered ones point at this URL).
     router.get('/v1/public/images/:oid', async (req, res) => {
         const { oid } = parse(fileParams, req.params);
         const { file, body } = await readSiteImage(fileDeps, oid);

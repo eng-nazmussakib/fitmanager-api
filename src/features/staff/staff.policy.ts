@@ -1,7 +1,7 @@
 import type { BranchKind, StaffRole } from '#src/auth/auth.repo.ts';
 
 /**
- * Who may manage which staff (D-055). The CASL rule `manage Staff` opens the staff routes; this narrows it to the
+ * Who may manage which staff. The CASL rule `manage Staff` opens the staff routes; this narrows it to the
  * roles and branches an actor may hand out or touch:
  * - OWNER at HQ: every role, every branch.
  * - HQ_ADMIN at HQ: branch roles (BRANCH_MANAGER, FRONT_DESK, TRAINER) at any branch; never OWNER or HQ_ADMIN.

@@ -28,15 +28,15 @@ import {
 } from './ladder.ts';
 
 /**
- * Discipline (phase 5, D-092 to D-094): incidents about members and staff, the sanctions given on them, appeals.
+ * Discipline: incidents about members and staff, the sanctions given on them, appeals.
  *
  * - An incident is written at the branch where it happened (HQ names the branch). A member's home branch reads it
  *   too; a case about a branch manager is HQ's only and hidden from the branch; nobody sees a case about themselves
  *   in the case lists (they see their sanctions in their own record).
- * - A sanction's effects are worked out when read (D-075): a member suspension in force blocks every branch's
+ * - A sanction's effects are worked out when read: a member suspension in force blocks every branch's
  *   check-in, a ban the branches it covers (`member_access_facts`), and the member's status shows it. Writing them
  *   does two things at once: a ban covering the member's home branch cancels their membership (no refund on its
- *   own, D-067), and staff sanctions act on the account (a suspension ends its sessions, a ban deactivates it).
+ *   own), and staff sanctions act on the account (a suspension ends its sessions, a ban deactivates it).
  * - The person sees their sanctions with the reason and the clause, never the notes, witnesses or evidence, and may
  *   appeal for 7 days; someone else decides (HQ for a ban). An upheld appeal overturns the sanction.
  */
@@ -45,7 +45,7 @@ export interface DisciplineDeps {
     cache: AppDeps['cache'];
     jwtSecret: string;
     apiPrefix: string;
-    /** "Now" for the messages' time (D-108). */
+    /** "Now" for the messages' time. */
     clock?: () => Date;
 }
 
@@ -425,7 +425,7 @@ async function cancelMemberships(tx: Queryable, ctx: BranchContext, memberOid: s
     return subs.length > 0;
 }
 
-/** `POST /v1/incidents/:oid/sanctions`: the next step on the case, with its effects (D-093). */
+/** `POST /v1/incidents/:oid/sanctions`: the next step on the case, with its effects. */
 export async function giveSanction(deps: DisciplineDeps, ctx: BranchContext, caller: Caller, oid: string, input: SanctionCreate, today: string) {
     const out = await withBranchTx(deps.db, ctx, async tx => {
         const i = await incidentIn(tx, ctx, caller, oid);
@@ -484,14 +484,14 @@ export async function giveSanction(deps: DisciplineDeps, ctx: BranchContext, cal
             returning oid`);
         if (!row) throw new Error('sanction insert returned nothing');
 
-        // Staff: the account (D-093). A suspension in force ends every session now; a ban deactivates the account.
+        // Staff: the account. A suspension in force ends every session now; a ban deactivates the account.
         if (i.staff_oid && input.level === 'ban') {
             await tx.query(sql`update app_user set status = 'Inactive', updated_at = now() where oid = ${i.staff_oid}`);
             await refreshTokens.revokeAll(tx, i.staff_oid);
         }
         if (i.staff_oid && input.level === 'suspension' && startsOn <= today) await refreshTokens.revokeAll(tx, i.staff_oid);
 
-        // The member hears of it in the portal (D-108 a), with the time they have to appeal (D-094).
+        // The member hears of it in the portal, with the time they have to appeal.
         const member = i.member_oid ? await memberContact(tx, i.member_oid) : null;
         if (member) {
             const what =
@@ -541,7 +541,7 @@ async function sanctionIn(tx: Queryable, ctx: BranchContext, caller: Caller, oid
     return s;
 }
 
-/** `POST /v1/sanctions/:oid/lift` (`manage Incident`): a ban ends, with a reason (D-093). A cancelled plan stays cancelled. */
+/** `POST /v1/sanctions/:oid/lift` (`manage Incident`): a ban ends, with a reason. A cancelled plan stays cancelled. */
 export async function liftBan(deps: DisciplineDeps, ctx: BranchContext, caller: Caller, oid: string, reason: string, today: string) {
     const out = await withBranchTx(deps.db, ctx, async tx => {
         const s = await sanctionIn(tx, ctx, caller, oid);
@@ -563,7 +563,7 @@ export async function liftBan(deps: DisciplineDeps, ctx: BranchContext, caller: 
     return out.detail;
 }
 
-/** `POST /v1/appeals/:oid/decide` (`manage Incident`): upheld overturns the sanction (D-094). */
+/** `POST /v1/appeals/:oid/decide` (`manage Incident`): upheld overturns the sanction. */
 export async function decideAppeal(
     deps: DisciplineDeps,
     ctx: BranchContext,
@@ -588,7 +588,7 @@ export async function decideAppeal(
             where oid = ${appealOid}`);
         if (input.decision === 'upheld') {
             await tx.query(sql`update sanction set overturned_at = now() where oid = ${s.oid}`);
-            // An overturned staff ban gives the account back; a member's cancelled plan is not restored (D-094).
+            // An overturned staff ban gives the account back; a member's cancelled plan is not restored.
             if (s.staff_oid && s.level === 'ban' && !s.lifted_at)
                 await tx.query(sql`update app_user set status = 'Active', updated_at = now() where oid = ${s.staff_oid}`);
         }
@@ -646,7 +646,7 @@ export async function memberRecord(deps: DisciplineDeps, ctx: BranchContext, cal
 
 /* ---------- the person's own record: portal and "My record" ---------- */
 
-/** What the person sees (D-094): the sanction, the clause and the reason; never notes, witnesses or evidence. */
+/** What the person sees: the sanction, the clause and the reason; never notes, witnesses or evidence. */
 function ownWire(s: SanctionRow, today: string) {
     const state = sanctionState(s, today);
     const deadline = appealDeadline(s.given_on);
@@ -698,7 +698,7 @@ export async function ownRecord(
     });
 }
 
-/** `POST /v1/me/record/:oid/appeal` and `POST /v1/my-record/:oid/appeal`: within 7 days, once (D-094). */
+/** `POST /v1/me/record/:oid/appeal` and `POST /v1/my-record/:oid/appeal`: within 7 days, once. */
 export async function fileAppeal(
     deps: DisciplineDeps,
     who: { member_oid: string | null; staff_oid: string | null },
@@ -725,7 +725,7 @@ export async function fileAppeal(
             values (${found.branch_oid}, ${found.member_branch_oid}, ${sanctionOid}, ${body}, ${actor.oid}, ${actor.name})`);
         const [code] = await tx.query<{ code: string }>(sql`select subject_code as code from incident where oid = ${found.incident_oid}`);
         await recordAudit(tx, ctx, { action: 'appeal', entity: 'appeal', entityKey: code?.code ?? sanctionOid, before: null, after: { level: found.level } });
-        // To whoever decides it (D-094): the branch's manager when the desk or a trainer gave it, else HQ.
+        // To whoever decides it: the branch's manager when the desk or a trainer gave it, else HQ.
         const atBranch = found.level !== 'ban' && !found.hq_only && (found.given_role === 'desk' || found.given_role === 'trainer');
         await tellStaff(tx, ctx, {
             to_branch_oid: atBranch ? found.branch_oid : await hqOid(tx),

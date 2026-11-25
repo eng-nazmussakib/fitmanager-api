@@ -9,7 +9,7 @@ import { type Sql, sql } from './sql.ts';
 import { systemContext } from './tenancy.ts';
 
 /**
- * Branch isolation through RLS alone, for every branch-scoped table (phase 1 §3): rows are made in two branches through
+ * Branch isolation through RLS alone, for every branch-scoped table: rows are made in two branches through
  * the API, then each branch reads every table with no branch filter at all, as a role RLS applies to, and must see
  * none of the other branch's rows. A new table with a `branch_oid` column fails the first test until it has RLS on
  * and forced, or is added to NO_RLS with its reason. The tables' own tests check the app filter and forged writes.
@@ -17,39 +17,39 @@ import { systemContext } from './tenancy.ts';
 
 /** Tables with a `branch_oid` column and no RLS, on purpose. */
 const NO_RLS: Record<string, string> = {
-    plan_template: 'HQ master data on the HQ row (D-023): every branch reads it, only HQ writes it (CASL)',
-    promo: 'HQ master data on the HQ row (D-023): every branch reads it, only HQ writes it (CASL)',
-    class_type: 'HQ master data on the HQ row (D-023, D-080): every branch reads it, only HQ writes it (CASL)',
-    policy: 'HQ master data on the HQ row (D-090): every branch and the public site read it, only HQ writes it (CASL)',
-    product: 'HQ master data on the HQ row (D-099): every branch reads the catalogue, only HQ writes it (CASL)',
-    supplier: 'HQ master data on the HQ row (D-099): branch managers read it for orders, only HQ writes it (CASL)',
-    blog_category: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
-    blog_post: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
-    offer: 'public website content on the HQ row (D-109): the public site reads it without a context, only HQ writes it (CASL)',
-    gallery_item: 'public website photos (D-109): read by the public site; HQ writes any, a branch manager their own (CASL + the branch check)',
+    plan_template: 'HQ master data on the HQ row: every branch reads it, only HQ writes it (CASL)',
+    promo: 'HQ master data on the HQ row: every branch reads it, only HQ writes it (CASL)',
+    class_type: 'HQ master data on the HQ row: every branch reads it, only HQ writes it (CASL)',
+    policy: 'HQ master data on the HQ row: every branch and the public site read it, only HQ writes it (CASL)',
+    product: 'HQ master data on the HQ row: every branch reads the catalogue, only HQ writes it (CASL)',
+    supplier: 'HQ master data on the HQ row: branch managers read it for orders, only HQ writes it (CASL)',
+    blog_category: 'public website content on the HQ row: the public site reads it without a context, only HQ writes it (CASL)',
+    blog_post: 'public website content on the HQ row: the public site reads it without a context, only HQ writes it (CASL)',
+    offer: 'public website content on the HQ row: the public site reads it without a context, only HQ writes it (CASL)',
+    gallery_item: 'public website photos: read by the public site; HQ writes any, a branch manager their own (CASL + the branch check)',
     staff_assignment: 'identity: read at sign-in to build the branch context itself, before there is one'
 };
 
 /** The columns a table's read policy matches on, when it is more than `branch_oid`. */
 const READ_BY: Record<string, string[]> = {
-    // A visit is seen by the visited branch and by the member's home branch (D-062).
+    // A visit is seen by the visited branch and by the member's home branch.
     check_in: ['branch_oid', 'member_branch_oid'],
-    // A subscription sold elsewhere is seen by the member's home branch too (D-061).
+    // A subscription sold elsewhere is seen by the member's home branch too.
     subscription: ['branch_oid', 'home_branch_oid'],
     // A transfer is seen by the branch it left and the one it went to.
     member_transfer: ['from_branch_oid', 'to_branch_oid'],
-    // A case, its steps and appeals are seen where it happened and by the member's home branch (D-092).
+    // A case, its steps and appeals are seen where it happened and by the member's home branch.
     incident: ['branch_oid', 'member_branch_oid'],
     sanction: ['branch_oid', 'member_branch_oid'],
     appeal: ['branch_oid', 'member_branch_oid'],
-    // A stock transfer and its lines are seen by the branch that asked and the one that sends (D-101).
+    // A stock transfer and its lines are seen by the branch that asked and the one that sends.
     stock_transfer: ['to_branch_oid', 'from_branch_oid'],
     stock_transfer_line: ['to_branch_oid', 'from_branch_oid'],
-    // An inbox message is seen by the branch it is addressed to and the one that sent it (D-108).
+    // An inbox message is seen by the branch it is addressed to and the one that sent it.
     staff_message: ['branch_oid', 'from_branch_oid']
 };
 
-/** Tables a policy reads (the probe role needs rights on them too): a trainer is seen where they are assigned (D-078). */
+/** Tables a policy reads (the probe role needs rights on them too): a trainer is seen where they are assigned. */
 const POLICY_READS: Record<string, string[]> = {
     trainer: ['staff_assignment'],
     trainer_leave: ['trainer', 'staff_assignment'],
@@ -57,7 +57,7 @@ const POLICY_READS: Record<string, string[]> = {
     routine: ['branch']
 };
 
-/** Tables whose policy also shows HQ's shared rows (the HQ library and templates, D-084, D-087). */
+/** Tables whose policy also shows HQ's shared rows (the HQ library and templates). */
 const ALSO_HQ = new Set(['exercise', 'routine']);
 
 const { GUL, DHA, UTT, HQ } = DEMO_BRANCHES;
@@ -119,7 +119,7 @@ beforeAll(async () => {
         const leaving = await newMember();
         await request(t.app).post(`/api/v1/members/${leaving.oid}/transfer`).set(m).send({ to_branch_oid: UTT.oid, reason: 'Moved house' }).expect(200);
 
-        // Phase 3 (D-078 to D-082): the seeded trainers, rooms, lockers, rules and availability are there; add a class
+        // The seeded trainers, rooms, lockers, rules and availability are there; add a class
         // session (made when the timetable is read) with a booking, a PT package and session, a locker rental, a
         // maintenance block and a trainer's day off.
         const week = (await request(t.app).get('/api/v1/classes/schedule?week=2026-11-21').set(d).expect(200)).body.data as {
@@ -152,7 +152,7 @@ beforeAll(async () => {
             .expect(201);
         await request(t.app).post(`/api/v1/trainers/${trainers[0]!.oid}/leave`).set(m).send({ from_date: '2026-12-10', to_date: '2026-12-11' }).expect(201);
 
-        // Phase 4 (D-084 to D-089): a branch exercise and template, the member's copy, a workout with a set and a measurement.
+        // A branch exercise and template, the member's copy, a workout with a set and a measurement.
         const exercise = (
             await request(t.app)
                 .post('/api/v1/exercises')
@@ -180,7 +180,7 @@ beforeAll(async () => {
             .expect(201);
         await request(t.app).post(`/api/v1/members/${member.oid}/measurements`).set(d).send({ measured_on: '2026-11-19', weight_kg: 70 }).expect(201);
 
-        // Phase 5 (D-090 to D-096): a paper acceptance, a case about the member with a step, a case about the desk with
+        // A paper acceptance, a case about the member with a step, a case about the desk with
         // a step and the desk's appeal, a complaint with a reply; an NPS answer and a rating (fixtures: they need a
         // portal sign-in and a class in the past).
         await request(t.app).post(`/api/v1/members/${member.oid}/policies/accept`).set(d).send({}).expect(200);
@@ -212,7 +212,7 @@ beforeAll(async () => {
                 .expect(201)
         ).body.data as { oid: string };
         await request(t.app).post(`/api/v1/complaints/${cmp.oid}/updates`).set(d).send({ body: 'On it' }).expect(200);
-        // Phase 6 (D-098 to D-102): stock in on a received order, an adjustment, equipment with a service and a
+        // Stock in on a received order, an adjustment, equipment with a service and a
         // ticket, a stock transfer asked of Uttara, and a POS sale with a return.
         const hq = atBranch((await signIn(t.app, 'admin.hq', 'Admin@123')).access_token, HQ.oid);
         await stockUp(t.app, m, hq, [{ code: 'PRD-000005', qty: 10, unit_cost: 110 }]);
@@ -224,7 +224,7 @@ beforeAll(async () => {
             oid: string;
         };
         await request(t.app).post(`/api/v1/equipment/${kit.oid}/service`).set(m).send({ technician: 'Probe Tech' }).expect(201);
-        // Phase 7b (D-108): an urgent ticket is a message in the branch's inbox, which the manager reads.
+        // An urgent ticket is a message in the branch's inbox, which the manager reads.
         await request(t.app).post(`/api/v1/equipment/${kit.oid}/tickets`).set(d).send({ description: 'Probe squeak', priority: 'urgent' }).expect(201);
         await request(t.app).post('/api/v1/inbox/read').set(m).send({}).expect(200);
         await request(t.app)

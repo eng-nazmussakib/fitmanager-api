@@ -65,7 +65,7 @@ const onHand = async (code: string) =>
     ((await request(t.app).get('/api/v1/pos/products').set(desk).expect(200)).body.data as typeof products).find(p => p.code === code)!.on_hand;
 const sell = (body: Record<string, unknown>, as = desk) => request(t.app).post('/api/v1/pos/sales').set(as).send(body);
 
-describe('the POS (D-102)', () => {
+describe('the POS', () => {
     it('lists what is on sale here, with the price, the VAT and the stock', () => {
         expect(products.find(p => p.code === 'PRD-000005')).toMatchObject({ price: 180, vat_rate: 0.15, on_hand: 20 });
         expect(products.find(p => p.code === 'PRD-000007')).toMatchObject({ price: 30, vat_rate: 0.05, on_hand: 24 });

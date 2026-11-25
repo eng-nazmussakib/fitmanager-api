@@ -9,7 +9,7 @@ import { atBranch, bearer, createTestApp, signIn, type TestApp } from '#src/test
 import { authenticate, currentBranch, requireAbility, requireBranch } from './middleware.ts';
 
 /**
- * Branch scoping (D-034), on a small app with the gates the phase 2 routes will use: `requireBranch` then
+ * Branch scoping, on a small app with the gates the branch routes use: `requireBranch` then
  * `requireAbility`, which checks the rules of the assignment at `X-Branch-Id`. The same cases as the web mock's
  * `mock-api.spec.ts`.
  */

@@ -26,7 +26,7 @@ export const templateCreate = v.pipe(
         featured: v.optional(v.boolean(), false),
         freezable: v.optional(v.boolean(), true),
         sort_order: v.optional(v.pipe(v.number(), v.integer()), 0),
-        /** A membership, or a PT package of `sessions` sessions valid for `months` (D-079). */
+        /** A membership, or a PT package of `sessions` sessions valid for `months`. */
         kind: v.optional(v.picklist(['membership', 'pt']), 'membership'),
         sessions: v.optional(v.nullable(v.pipe(v.number(), v.integer('Whole sessions'), v.minValue(1), v.maxValue(100))))
     }),

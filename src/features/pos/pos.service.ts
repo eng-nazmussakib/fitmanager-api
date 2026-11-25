@@ -16,14 +16,14 @@ import type { CartInput, ReturnInput, SaleInput } from './pos.schema.ts';
 import { type PosLine, posQuote, returnAmount } from './pos-pricing.ts';
 
 /**
- * The POS (phase 6, D-102). The desk sells products to a member of the branch or a walk-in, on an invoice of kind
+ * The POS. The desk sells products to a member of the branch or a walk-in, on an invoice of kind
  * `pos` through the sales service: numbered like every invoice, VAT per line (the product's rate or HQ's), a receipt,
  * the same payment methods, in the cash closing. A walk-in pays it all; a member may pay part or none, and the rest
  * is charged to their account: the invoice stays unpaid and counts toward dues (access rule 5 at check-in). A branch
  * manager (`manage Sale`) may take money off a line, with a reason. Each line takes the stock off (`sold`, at the
  * average cost). A return gives money back through the refund step (a `refund` payment) and puts the items back
  * unless they are damaged; the desk may return within 3 days of the sale, a manager after that. Only money paid
- * comes back: a sale still owed is paid first (D-104).
+ * comes back: a sale still owed is paid first.
  */
 export interface PosDeps {
     db: Db;
@@ -207,7 +207,7 @@ export async function sellPos(deps: PosDeps, ctx: BranchContext, now: DhakaNow, 
         const invoice = await invoiceOut(tx, invoiceOid, [ctx.branchOid]);
         // The same audit row as a locker rental's invoice: `<member code>/<number>`, which the reconciliation report finds.
         await recordAudit(tx, ctx, { action: 'create', entity: 'invoice', entityKey: `${c.code}/${number}`, before: null, after: { invoice, charged } });
-        // A member's shop receipt (D-108 a): what they bought, what they paid, and what is on their account.
+        // A member's shop receipt: what they bought, what they paid, and what is on their account.
         if (c.oid) {
             const items = q.lines.map(l => l.label).join(', ');
             await notify(tx, {

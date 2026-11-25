@@ -14,7 +14,7 @@ const username = v.pipe(
     v.regex(/^[a-z0-9][a-z0-9._-]{2,49}$/, '3–50 characters: letters, digits, dots, dashes or underscores')
 );
 const name = v.pipe(v.string(), v.trim(), v.minLength(1, 'Enter a name'), v.maxLength(100));
-/** Optional (D-054); an empty string clears it. */
+/** Optional; an empty string clears it. */
 const email = v.pipe(
     v.nullable(v.pipe(v.string(), v.trim(), v.maxLength(200))),
     v.transform(e => (e === '' ? null : e)),
@@ -43,7 +43,7 @@ export const branchListQuery = v.strictObject({
     q: v.optional(v.pipe(v.string(), v.trim(), v.maxLength(100)))
 });
 
-/** HQ: a new account with its assignments. `password` is the temporary password the admin types (D-054). */
+/** HQ: a new account with its assignments. `password` is the temporary password the admin types. */
 export const hqCreateSchema = v.strictObject({
     username,
     name,

@@ -11,9 +11,9 @@ import { AppError } from '#src/lib/http.ts';
 import { evaluateAccess, type MemberStatus, type RuleFailure } from './access-rules.ts';
 
 /**
- * Attendance (phase 2 step 6; D-059, D-062, D-066, D-070). A member trains at any branch: the desk scans a
+ * Attendance. A member trains at any branch: the desk scans a
  * code, the access rules decide, and the visit is written at the branch entered, with the member's code, name,
- * photo and home branch COPIED onto the row (D-066), which is all a visited branch ever sees of a visitor.
+ * photo and home branch COPIED onto the row, which is all a visited branch ever sees of a visitor.
  * The cross-branch facts come from the narrow `member_access_facts(code)` function (migration 014).
  */
 export interface AttendanceDeps {
@@ -22,7 +22,7 @@ export interface AttendanceDeps {
     apiPrefix: string;
 }
 
-/** Back-dated entries: at most this many days back (D-070 b). */
+/** Back-dated entries: at most this many days back. */
 export const BACKDATE_DAYS = 7;
 
 interface Facts {
@@ -46,7 +46,7 @@ interface Facts {
         branch_name: string;
         reason: string;
     }[];
-    /** Required policies not accepted, with the first day each blocks (D-091). */
+    /** Required policies not accepted, with the first day each blocks. */
     policies: { title: string; version: number; blocks_on: string }[];
     subscriptions: { start_date: string; end_date: string; freezes: { from: string; to: string }[]; cancelled: boolean }[];
     /** `yyyy-MM-ddTHH:mm` in Dhaka, of an open visit anywhere. */
@@ -111,7 +111,7 @@ export interface Decision {
         valid_until: string | null;
         days_left: number | null;
         dues: number;
-        /** Another branch's member (D-059): the plan and dues stay with their home branch. */
+        /** Another branch's member: the plan and dues stay with their home branch. */
         visitor: boolean;
         home_branch_name: string;
     };
@@ -127,14 +127,14 @@ async function decide(deps: AttendanceDeps, tx: Queryable, ctx: BranchContext, n
             subscription: relevant,
             branch: { name: branch.name, hours: branch.hours },
             open_check_in: f.open_check_in ? { branch_name: f.open_check_in_branch ?? 'another branch', time: f.open_check_in.slice(11, 16) } : null,
-            // Bans only where they reach: this branch, or every branch (D-093).
+            // Bans only where they reach: this branch, or every branch.
             sanctions: f.sanctions.filter(x => x.level === 'suspension' || x.scope === 'all' || x.branch_oid === ctx.branchOid),
             policies: f.policies
         },
         now
     );
     const home = f.branch_oid === ctx.branchOid;
-    // The plan name is the home branch's business; a visited branch reads only the outcome (D-059, D-066).
+    // The plan name is the home branch's business; a visited branch reads only the outcome.
     const plan = home
         ? await tx.query<{ plan_name: string }>(
               sql`select plan_name from subscription where member_oid = ${f.oid} and kind = 'membership' and end_date = ${relevant?.end_date ?? null}::date limit 1`
@@ -143,7 +143,7 @@ async function decide(deps: AttendanceDeps, tx: Queryable, ctx: BranchContext, n
     return {
         allowed: failures.length === 0,
         failures,
-        // Due but not blocking yet (D-091): the desk asks the member to sign.
+        // Due but not blocking yet: the desk asks the member to sign.
         policies_due: f.policies.filter(p => p.blocks_on > now.date).map(p => ({ title: p.title, blocks_on: p.blocks_on })),
         member: {
             oid: f.oid,
@@ -294,14 +294,14 @@ export async function checkIn(
             before: null,
             after: { oid, at: now.at.toISOString(), override: override?.reason ?? null, failures: decision.failures.map(x => x.rule) }
         });
-        // A booked class starting soon (or under way) at the member's home branch is marked Attended (D-081).
+        // A booked class starting soon (or under way) at the member's home branch is marked Attended.
         const classes = f.branch_oid === ctx.branchOid ? await markArrival(tx, ctx, f.oid, now.at) : [];
         const base = override ? `${f.name} checked in with an override` : `${f.name} checked in`;
         return { visit: await toWire(deps, row), message: classes.length ? `${base}; marked present for ${classes.join(', ')}` : base };
     });
 }
 
-/** A visit entered after the fact (D-070 b): a manager, within 7 days, with a reason. No access rules: it happened. */
+/** A visit entered after the fact: a manager, within 7 days, with a reason. No access rules: it happened. */
 export async function backdate(
     deps: AttendanceDeps,
     ctx: BranchContext,
@@ -388,7 +388,7 @@ export async function occupancy(deps: AttendanceDeps, ctx: BranchContext, now: D
     });
 }
 
-/** Visit days for a member's heatmap, at every branch (the home branch reads its members' visits, D-066). */
+/** Visit days for a member's heatmap, at every branch (the home branch reads its members' visits). */
 export async function memberAttendance(deps: AttendanceDeps, ctx: BranchContext, now: DhakaNow, memberOid: string, days: number) {
     return withBranchTx(deps.db, ctx, async tx => {
         const [own] = await tx.query<{ oid: string }>(sql`select oid from member where oid = ${memberOid} and branch_oid = ${ctx.branchOid}`);
@@ -403,9 +403,9 @@ export async function memberAttendance(deps: AttendanceDeps, ctx: BranchContext,
 }
 
 /**
- * Closes the branch's finished visits (D-070 a, D-075): every visit still open after the branch closed that day is
+ * Closes the branch's finished visits: every visit still open after the branch closed that day is
  * closed at the closing time, marked `auto_out`. A visit on a day with no opening hours is closed at the end of that
- * day. There is no scheduled job (D-075): this runs before the branch's floor is read (today's list, occupancy), so
+ * day. There is no scheduled job: this runs before the branch's floor is read (today's list, occupancy), so
  * the floor is right whenever someone looks at it. Safe to run at any time and more than once; concurrent runs
  * serialise on `for update`, and the second finds nothing left to close.
  */

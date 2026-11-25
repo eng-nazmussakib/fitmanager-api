@@ -2,7 +2,7 @@ import * as v from 'valibot';
 
 import { LADDER } from './ladder.ts';
 
-/** Request schemas of discipline (phase 5, D-092 to D-094). */
+/** Request schemas of discipline. */
 const uuid = (message: string) => v.pipe(v.string(), v.uuid(message));
 const text = (min: number, max: number) =>
     v.pipe(v.string(), v.trim(), v.minLength(min, min > 1 ? `At least ${min} characters` : 'Required'), v.maxLength(max, `At most ${max} characters`));
@@ -32,7 +32,7 @@ export const incidentCreate = v.pipe(
         /** At HQ: the branch where it happened. At a branch: that branch, always. */
         branch_oid: v.optional(uuid('Unknown branch')),
         subject_kind: v.picklist(['member', 'staff'], 'A member or a staff member'),
-        /** A member by code: their own branch's or a visitor (D-059). */
+        /** A member by code: their own branch's or a visitor. */
         member_code: v.optional(v.pipe(v.string(), v.trim(), v.toUpperCase(), v.maxLength(30))),
         staff_oid: v.optional(uuid('Unknown staff member')),
         occurred_at: v.pipe(v.string(), v.isoTimestamp('A date and time')),
@@ -61,9 +61,9 @@ export type IncidentUpdate = v.InferOutput<typeof incidentUpdate>;
 
 export const sanctionCreate = v.strictObject({
     level: v.picklist(LADDER, 'Choose a step'),
-    /** Shown to the person (D-094). */
+    /** Shown to the person. */
     reason: text(3, 500),
-    /** Why another step than the suggested one (D-092). */
+    /** Why another step than the suggested one. */
     choice_reason: optionalText(500),
     /** Suspensions. */
     starts_on: v.optional(date),

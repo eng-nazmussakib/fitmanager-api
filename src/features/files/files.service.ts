@@ -13,7 +13,7 @@ import { log } from '#src/lib/logger.ts';
 import { type FileKind, type FileRow, filesRepo, GUEST_KEY_PREFIX } from './files.repo.ts';
 
 /**
- * Member photos and documents (phase 2 step 2; D-058, D-069). The upload is two calls around the browser's PUT:
+ * Member photos and documents. The upload is two calls around the browser's PUT:
  * 1. `start`: a `pending` row and a short-lived signed URL (the bucket's, or the API's own route for the local
  *    store);
  * 2. the browser PUTs the bytes there;
@@ -40,14 +40,14 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         perMember: 0,
         label: 'A photo is a JPEG, PNG or WebP of at most 2 MB'
     },
-    // Small, on purpose (D-085): resized in the browser to 800 px.
+    // Small, on purpose: resized in the browser to 800 px.
     exercise_photo: {
         types: ['image/jpeg', 'image/png', 'image/webp'],
         maxBytes: 300 * 1024,
         perMember: 0,
         label: 'An exercise photo is a JPEG, PNG or WebP of at most 300 KB'
     },
-    // At most 10 seconds, checked in the browser (D-085).
+    // At most 10 seconds, checked in the browser.
     exercise_video: {
         types: ['video/mp4', 'video/webm'],
         maxBytes: 8 * 1024 * 1024,
@@ -60,21 +60,21 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         perMember: 0,
         label: 'A progress photo is a JPEG, PNG or WebP of at most 300 KB'
     },
-    // Phase 5 (D-094): photos resized in the browser like other photos, or a PDF (a written statement). No video.
+    // Photos resized in the browser like other photos, or a PDF (a written statement). No video.
     incident_evidence: {
         types: ['image/jpeg', 'image/png', 'image/webp', 'application/pdf'],
         maxBytes: 2 * 1024 * 1024,
         perMember: 0,
         label: 'Evidence is a photo (JPEG, PNG or WebP) or a PDF of at most 2 MB'
     },
-    // Phase 5 (D-095): one photo on a complaint, resized in the browser.
+    // One photo on a complaint, resized in the browser.
     complaint_photo: {
         types: ['image/jpeg', 'image/png', 'image/webp'],
         maxBytes: 300 * 1024,
         perMember: 0,
         label: 'A complaint photo is a JPEG, PNG or WebP of at most 300 KB'
     },
-    // Phase 6 (D-098, D-099): resized in the browser to 800 px, like exercise photos. Product photos are HQ's.
+    // Resized in the browser to 800 px, like exercise photos. Product photos are HQ's.
     product_photo: {
         types: ['image/jpeg', 'image/png', 'image/webp'],
         maxBytes: 300 * 1024,
@@ -93,7 +93,7 @@ export const FILE_RULES: Record<FileKind, { types: readonly string[]; maxBytes: 
         perMember: 0,
         label: 'A ticket photo is a JPEG, PNG or WebP of at most 300 KB'
     },
-    // Phase 7c (D-109): website images (post covers, gallery and branch photos), shrunk in the browser, public.
+    // Website images (post covers, gallery and branch photos), shrunk in the browser, public.
     site_image: {
         types: ['image/jpeg', 'image/png', 'image/webp'],
         maxBytes: 500 * 1024,
@@ -117,7 +117,7 @@ export interface FileDeps {
     files: FileStore;
     jwtSecret: string;
     apiPrefix: string;
-    /** The total for every branch together (`FILE_STORAGE_LIMIT_MB`, D-074). Left out: no total limit. */
+    /** The total for every branch together (`FILE_STORAGE_LIMIT_MB`). Left out: no total limit. */
     storageLimitBytes?: number;
 }
 
@@ -144,7 +144,7 @@ const secretOf = (deps: Pick<FileDeps, 'jwtSecret'>) => new TextEncoder().encode
 
 /**
  * The key never comes from the client: `<branch>/<file oid>`, or `guest/<branch>/<file oid>` for an upload from a
- * guest session (D-077), which the bucket deletes after 7 days.
+ * guest session, which the bucket deletes after 7 days.
  */
 const storageKey = (branchOid: string, oid: string, guest: boolean) => `${guest ? GUEST_KEY_PREFIX : ''}${branchOid}/${oid}`;
 
@@ -285,7 +285,7 @@ export async function readByViewToken(deps: FileDeps, oid: string, token: string
 }
 
 /**
- * A website image (`site_image`, D-109) for the public site: anyone may read a ready one, at a stable URL
+ * A website image (`site_image`) for the public site: anyone may read a ready one, at a stable URL
  * (`/v1/public/images/:oid`), so prerendered pages can point at it. Every other kind stays private.
  */
 export async function readSiteImage(deps: FileDeps, oid: string): Promise<{ file: FileRow; body: Uint8Array }> {

@@ -10,7 +10,7 @@ import { recordAudit } from '#src/features/audit/audit.service.ts';
 import { AppError, ok, parse } from '#src/lib/http.ts';
 
 /**
- * Public site content groups (D-040). A group (blog, trainers…) can have a landing SECTION and a PAGE of its own,
+ * Public site content groups. A group (blog, trainers…) can have a landing SECTION and a PAGE of its own,
  * switched separately: `{ section: false, page: true }` keeps /blog but drops it from the home page. `null` means
  * the group has no such part. Required groups (home, programs, membership, facilities) keep every part on. The
  * groups and the `required` flags come from the migrations (`site_group`, 003); the database refuses to switch
@@ -67,7 +67,7 @@ export function siteRouter(deps: AppDeps): Router {
     router.patch('/v1/hq/site-groups/:key', ...hq, requireAbility('update', 'Settings'), async (req, res) => {
         const { key } = parse(keyParams, req.params);
         const body = parse(updateSchema, req.body);
-        const ctx = branchContext(req); // the HQ row: site groups are HQ data (D-043)
+        const ctx = branchContext(req); // the HQ row: site groups are HQ data
         const { g, row } = await withBranchTx(db, ctx, async tx => {
             const [g] = await tx.query<SiteGroup>(sql`select ${COLUMNS} from site_group g where g.key = ${key} for update`);
             if (!g) throw new AppError(404, 'Unknown group');

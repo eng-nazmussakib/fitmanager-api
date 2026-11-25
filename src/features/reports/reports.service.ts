@@ -8,7 +8,7 @@ import * as defs from './reports.defs.ts';
 import * as repo from './reports.repo.ts';
 
 /**
- * The eight fixed reports (D-106), computed in SQL when read: this file loads the rows, `reports.defs.ts` shapes
+ * The eight fixed reports, computed in SQL when read: this file loads the rows, `reports.defs.ts` shapes
  * them (the same definitions run in the web mock). Each takes the branches in scope (one at a branch, the user's
  * branches at HQ), a range of Dhaka days and whether to compare with the previous period.
  */

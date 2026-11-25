@@ -3,7 +3,7 @@ import * as v from 'valibot';
 import { bdMobile } from '#src/features/members/members.schema.ts';
 import { queryInt } from '#src/lib/query.ts';
 
-/** Request schemas of the scheduling subsystem (phase 3): trainers, classes, PT, facilities. */
+/** Request schemas of the scheduling subsystem: trainers, classes, PT, facilities. */
 const uuid = (message: string) => v.pipe(v.string(), v.uuid(message));
 const text = (max: number) => v.pipe(v.string(), v.trim(), v.maxLength(max));
 const optionalText = (max: number) =>

@@ -46,7 +46,7 @@ import {
 const PUBLIC_CACHE_SECONDS = 60;
 
 /**
- * The public website's content (phase 7c, D-109).
+ * The public website's content.
  *
  * Public (no sign-in, cached a minute):
  * - `GET /v1/public/posts[?category=]`, `/v1/public/posts/:slug`, `/v1/public/blog-categories`;

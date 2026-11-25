@@ -32,7 +32,7 @@ interface Product {
     active: boolean;
 }
 
-describe('the catalogue (D-099)', () => {
+describe('the catalogue', () => {
     it('the demo catalogue: 13 products on sale, HQ’s VAT unless a product has its own', async () => {
         const list = (await request(t.app).get('/api/v1/products').set(desk).expect(200)).body.data as Product[];
         expect(list).toHaveLength(13);
@@ -58,7 +58,7 @@ describe('the catalogue (D-099)', () => {
         const priced = (await request(t.app).patch(`/api/v1/hq/products/${created.oid}`).set(hq).send({ price: 1350, vat_rate: 0.1 }).expect(200)).body
             .data as Product;
         expect(priced).toMatchObject({ price: 1350, vat_rate_applied: 0.1 });
-        // Prices are HQ's only (D-099), and HQ's routes are HQ's.
+        // Prices are HQ's only, and HQ's routes are HQ's.
         await request(t.app).post('/api/v1/hq/products').set(manager).send({ name: 'Mat', category: 'accessories', unit: 'piece', price: 900 }).expect(403);
         await request(t.app).patch(`/api/v1/hq/products/${created.oid}`).set(manager).send({ price: 1 }).expect(403);
         await request(t.app).get('/api/v1/products').set(trainer).expect(403);
@@ -77,7 +77,7 @@ describe('the catalogue (D-099)', () => {
     });
 });
 
-describe('suppliers (D-099)', () => {
+describe('suppliers', () => {
     it('HQ adds and edits them; the branch manager reads; the desk does not', async () => {
         const s = (
             await request(t.app)

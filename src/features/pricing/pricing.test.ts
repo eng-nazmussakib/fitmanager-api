@@ -1,6 +1,6 @@
 import { endDate, invoiceDue, invoiceStatus, type PriceInput, type Promo, quote } from './pricing.ts';
 
-// The cases of the web mock's pricing.spec.ts (fitmanager-web src/app/mock/domain), plus VAT-inclusive (D-057).
+// The cases of the web mock's pricing.spec.ts (fitmanager-web src/app/mock/domain), plus VAT-inclusive.
 const PROMOS: Promo[] = [
     { code: 'NOADMISSION', label: 'No admission fee', waive_admission: true, from: '2026-11-01', to: '2026-11-30' },
     { code: 'STUDENT10', label: '10% student discount', percent: 10, from: '2026-01-01', to: '2026-12-31' },
@@ -53,7 +53,7 @@ describe('pricing, VAT exclusive (as the mock)', () => {
     });
 });
 
-describe('pricing, VAT inclusive (D-057)', () => {
+describe('pricing, VAT inclusive', () => {
     it.each([
         ['15% inside 5000', input({ vat_rate: 0.15, vat_inclusive: true }), 5000, 0, 652, 5000],
         ['5% inside 3150 after a discount', input({ vat_inclusive: true, discount: { kind: 'amount', value: 1850 } }), 5000, 1850, 150, 3150],
@@ -76,7 +76,7 @@ describe('membership end date', () => {
     });
 });
 
-describe('invoice dues and status after refunds (D-067 a)', () => {
+describe('invoice dues and status after refunds', () => {
     it.each([
         // total, paid in, refunded → due, status
         [6325, 0, 0, 6325, 'Due'],

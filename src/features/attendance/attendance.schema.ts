@@ -29,7 +29,7 @@ const entry = v.pipe(
     v.check(b => hasMember(b), 'Choose a member')
 );
 
-/** `POST /v1/attendance/backdated`: one or many visits entered after the fact (D-070 b). */
+/** `POST /v1/attendance/backdated`: one or many visits entered after the fact. */
 export const backdateSchema = v.strictObject({ entries: v.pipe(v.array(entry), v.minLength(1, 'Add at least one visit'), v.maxLength(100)) });
 
 export const daysQuery = v.object({ days: v.optional(queryInt(1, 366), 84) });

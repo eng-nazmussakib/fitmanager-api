@@ -1,7 +1,7 @@
 import { AwsClient } from 'aws4fetch';
 
 /**
- * Where member photos and documents are kept (D-058). One interface, two implementations:
+ * Where member photos and documents are kept. One interface, two implementations:
  * - `createS3Store`: Cloudflare R2's S3 API over `fetch` with SigV4 (aws4fetch), so the
  *   same code runs on Workers and on Node. The browser uploads straight to the bucket with a signed URL;
  *   nothing large passes through the API (Workers limits).

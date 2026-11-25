@@ -40,7 +40,7 @@ const unread = async (me: Record<string, string>) =>
     (await request(t.app).get('/api/v1/me/notifications/count').set(me).expect(200)).body.data.unread as number;
 const inbox = async (who: Record<string, string>) => (await request(t.app).get('/api/v1/inbox').set(who).expect(200)).body.data as Inbox;
 
-describe('members’ messages (D-108 a, d)', () => {
+describe('members’ messages (d)', () => {
     it('a reply to a complaint, a sanction and the appeal’s decision, each a message; read state and the count', async () => {
         const m = await portalMember(t.app, desk, nextPhone());
         const before = await unread(m.me);
@@ -149,7 +149,7 @@ describe('members’ messages (D-108 a, d)', () => {
     });
 });
 
-describe('the staff inbox (D-108 b)', () => {
+describe('the staff inbox', () => {
     it('an order goes to HQ, its decision to the branch; a transfer to the branch asked; each sees only its own', async () => {
         const products = (await request(t.app).get('/api/v1/products').set(manager).expect(200)).body.data as { oid: string; code: string }[];
         const suppliers = (await request(t.app).get('/api/v1/suppliers').set(manager).expect(200)).body.data as { oid: string }[];

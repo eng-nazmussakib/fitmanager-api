@@ -11,7 +11,7 @@ import { type ListQuery, type MemberRow, membersRepo, type MemberStatus } from '
 import type { MemberCreate, MemberUpdate } from './members.schema.ts';
 
 /**
- * Members (phase 2 step 3; D-022, D-059, D-068). A member belongs to one home branch (the request's branch for
+ * Members. A member belongs to one home branch (the request's branch for
  * every action here); other branches never read the record. Every change is audited at the branch, keyed by the
  * member code.
  */
@@ -32,7 +32,7 @@ export async function toWire(deps: Pick<MemberDeps, 'jwtSecret' | 'apiPrefix'>, 
         photo_file_oid,
         photo_url: photo_file_oid ? await viewUrl(deps, { oid: photo_file_oid, branch_oid: m.branch_oid }) : null,
         branch: { oid: m.branch_oid, code: branch_code, slug: branch_slug, name: branch_name, kind: 'BRANCH' as const },
-        // What makes the member Suspended or Banned (D-093): the record is on the discipline tab.
+        // What makes the member Suspended or Banned: the record is on the discipline tab.
         sanction: sanction_level ? { level: sanction_level, reason: sanction_reason ?? '', until: sanction_until, branch_name: sanction_branch ?? '' } : null
     };
 }
@@ -122,7 +122,7 @@ export async function createMember(
                 health_declared: input.health_declared,
                 notes: input.notes ?? null,
                 joined_on: today,
-                // No subscription yet: the membership starts with the first sale (D-022).
+                // No subscription yet: the membership starts with the first sale.
                 pending: true,
                 source,
                 created_by: actor,
@@ -183,7 +183,7 @@ export async function activateMember(tx: Queryable, oid: string, actor: string):
 }
 
 /**
- * Moves the home branch (D-068 d): HQ or the home branch's manager, only with zero dues. A running plan carries
+ * Moves the home branch: HQ or the home branch's manager, only with zero dues. A running plan carries
  * on (its subscription's home branch moves; the money stays with the branch that sold it), the photo and
  * documents follow, and the history stays where it was made. Audited at both branches.
  */
@@ -211,7 +211,7 @@ export async function transferMember(deps: MemberDeps, ctx: BranchContext, oid: 
         await membersRepo.update(tx, oid, { branch_oid: toBranchOid }, actor);
         await tx.query(sql`update subscription set home_branch_oid = ${toBranchOid} where member_oid = ${oid}`);
         await memberFiles.move(tx, oid, toBranchOid);
-        // Training history goes with them (D-089); the running routine ends here, as its exercises may be this branch's.
+        // Training history goes with them; the running routine ends here, as its exercises may be this branch's.
         await tx.query(sql`update routine set ended_on = greatest(${today}::date, started_on) where member_oid = ${oid} and ended_on is null`);
         for (const table of ['routine', 'workout', 'workout_set', 'measurement'] as const) {
             await tx.query(sql`update ${sql.raw(table)} set branch_oid = ${toBranchOid} where member_oid = ${oid}`);
@@ -229,7 +229,7 @@ export async function transferMember(deps: MemberDeps, ctx: BranchContext, oid: 
 }
 
 /**
- * "Delete my data" (D-068 c): wipes the personal fields, the photo and documents, the name and phone copied onto
+ * "Delete my data": wipes the personal fields, the photo and documents, the name and phone copied onto
  * invoices and check-ins, and closes the portal account. Invoices, payments and check-ins stay under the code.
  */
 export async function anonymiseMember(deps: MemberDeps, ctx: BranchContext, oid: string, today: string, confirmCode: string) {
@@ -245,7 +245,7 @@ export async function anonymiseMember(deps: MemberDeps, ctx: BranchContext, oid:
         if (confirmCode !== locked.code)
             throw new AppError(400, `Type the member code ${locked.code} to confirm`, [{ path: 'confirm_code', message: 'Does not match' }]);
         const before = await memberAt(tx, ctx, oid, today);
-        // Training data is personal (D-089): deleted, not kept under the code. The photos go with the files below.
+        // Training data is personal: deleted, not kept under the code. The photos go with the files below.
         await tx.query(sql`delete from measurement where member_oid = ${oid}`);
         await tx.query(sql`delete from workout where member_oid = ${oid}`);
         await tx.query(sql`delete from routine where member_oid = ${oid}`);
@@ -272,7 +272,7 @@ export async function anonymiseMember(deps: MemberDeps, ctx: BranchContext, oid:
         await tx.query(sql`update invoice set member_name = ${ANONYMISED_NAME}, member_phone = null where member_oid = ${oid}`);
         await tx.query(sql`update check_in set member_name = ${ANONYMISED_NAME}, member_photo_file_oid = null where member_oid = ${oid}`);
         await tx.query(sql`update notification set recipient = null where member_oid = ${oid}`);
-        // Governance copies (phase 5): the cases, complaints and ratings stay, under the code, without the name.
+        // Governance copies: the cases, complaints and ratings stay, under the code, without the name.
         await tx.query(sql`update incident set subject_name = ${ANONYMISED_NAME} where member_oid = ${oid}`);
         await tx.query(sql`update complaint set member_name = ${ANONYMISED_NAME}, photo_file_oid = null where member_oid = ${oid}`);
         await tx.query(sql`update rating set member_name = ${ANONYMISED_NAME} where member_oid = ${oid}`);

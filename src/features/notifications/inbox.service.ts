@@ -6,10 +6,10 @@ import { type BranchContext, withBranchTx } from '#src/db/tenancy.ts';
 import { RETENTION_DAYS } from './notifications.service.ts';
 
 /**
- * The staff inbox (D-108 b): a short list of what a branch manager or HQ must act on, behind the console's bell. A
+ * The staff inbox: a short list of what a branch manager or HQ must act on, behind the console's bell. A
  * message is addressed to a branch (or the HQ row) and seen there by whoever holds the kind's permission, so the
- * list follows the role rules and never role names (D-034). Read state is per person; read messages older than 180
- * days are no longer listed (nothing deletes them, D-075).
+ * list follows the role rules and never role names. Read state is per person; read messages older than 180
+ * days are no longer listed (nothing deletes them).
  */
 export type StaffMessageKind =
     | 'po_submitted'

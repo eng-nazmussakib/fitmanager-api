@@ -55,7 +55,7 @@ interface MemberPolicy {
 const gymRules = async (): Promise<Policy> =>
     ((await request(t.app).get('/api/v1/policies').set(desk).expect(200)).body.data as Policy[]).find(p => p.slug === 'gym-rules')!;
 
-describe('policies (D-090)', () => {
+describe('policies', () => {
     it('every console reads them; the seed has five, the refund policy with a wording-only second version', async () => {
         const list = (await request(t.app).get('/api/v1/policies').set(trainer).expect(200)).body.data as Policy[];
         expect(list.map(p => [p.slug, p.current.version, p.required_version])).toEqual([
@@ -125,7 +125,7 @@ describe('policies (D-090)', () => {
     });
 });
 
-describe('acceptance and enforcement (D-090, D-091)', () => {
+describe('acceptance and enforcement', () => {
     it('a new "accept again" version is due for 14 days, then blocks check-in; a manager may override; accepting clears it', async () => {
         const m = await portalMember(t.app, desk, '01920000001', { name: 'Policy Tester' });
         let mine = (await request(t.app).get('/api/v1/me/policies').set(m.me).expect(200)).body.data as MemberPolicy[];

@@ -102,7 +102,7 @@ export interface SessionRow {
     cancel_reason: string | null;
     booked: number;
     waitlist: number;
-    /** A maintenance block covers the room at the time (D-082). */
+    /** A maintenance block covers the room at the time. */
     blocked: boolean;
 }
 
@@ -226,7 +226,7 @@ export const schedulingRepo = {
 
     /**
      * Makes the sessions of every active rule of the branch for the Dhaka days `from` to `to` (idempotent: one per rule
-     * and day). The time-based rule of D-075: the timetable is filled in when it is read, never by a job.
+     * and day). With no scheduled jobs, the timetable is filled in when it is read, never by a job.
      */
     materialise: (tx: Queryable, branchOid: string, from: string, to: string) =>
         tx.query(sql`

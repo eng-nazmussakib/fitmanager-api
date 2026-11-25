@@ -15,7 +15,7 @@ import type { PtCreate } from './scheduling.schema.ts';
 import { type Caller, type SchedulingDeps, trainerWire } from './trainers.service.ts';
 
 /**
- * PT sessions (phase 3, D-079). A member with a PT package books an hour with a trainer who works at their home
+ * PT sessions. A member with a PT package books an hour with a trainer who works at their home
  * branch, in a free slot: inside the trainer's availability and the branch's hours, not on leave, clashing with none
  * of the trainer's classes or PT. Each session uses one credit of the package that ends first; a cancel by the
  * trainer or staff, or by the member in good time, gives it back; a late cancel or a no-show by the member uses it.

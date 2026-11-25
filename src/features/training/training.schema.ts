@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of the training subsystem (phase 4): exercises, routines, workouts, measurements. */
+/** Request schemas of the training subsystem: exercises, routines, workouts, measurements. */
 const uuid = (message: string) => v.pipe(v.string(), v.uuid(message));
 const text = (max: number) => v.pipe(v.string(), v.trim(), v.maxLength(max));
 const optionalText = (max: number) =>
@@ -48,7 +48,7 @@ export type Measure = (typeof MEASURES)[number];
 
 export const oidParams = v.object({ oid: uuid('Not found') });
 
-/* ---------- exercises (D-084, D-085) ---------- */
+/* ---------- exercises ---------- */
 
 const exerciseFields = {
     name: v.pipe(text(80), v.minLength(2, 'At least 2 characters')),
@@ -88,7 +88,7 @@ export type ExerciseCreate = v.InferOutput<typeof exerciseCreate>;
 export type ExerciseUpdate = v.InferOutput<typeof exerciseUpdate>;
 export type ExerciseQuery = v.InferOutput<typeof exerciseQuery>;
 
-/* ---------- routines (D-087) ---------- */
+/* ---------- routines ---------- */
 
 const routineExercise = v.strictObject({
     exercise_oid: uuid('Unknown exercise'),
@@ -127,7 +127,7 @@ export type RoutineUpdate = v.InferOutput<typeof routineUpdate>;
 export type RoutineExerciseInput = v.InferOutput<typeof routineExercise>;
 export type AssignInput = v.InferOutput<typeof assignSchema>;
 
-/* ---------- workouts (D-088) ---------- */
+/* ---------- workouts ---------- */
 
 const setInput = v.strictObject({
     weight_kg: nullable(decimal(0, 1000, 2)),
@@ -157,7 +157,7 @@ export type WorkoutCreate = v.InferOutput<typeof workoutCreate>;
 export type WorkoutUpdate = v.InferOutput<typeof workoutUpdate>;
 export type SetInput = v.InferOutput<typeof setInput>;
 
-/* ---------- measurements (D-089) ---------- */
+/* ---------- measurements ---------- */
 
 export const measurementCreate = v.pipe(
     v.strictObject({
@@ -188,7 +188,7 @@ export type MeasurementCreate = v.InferOutput<typeof measurementCreate>;
 
 /** `POST /v1/me/files`: a member's own progress photo (the staff route is `/v1/files`). */
 export const portalFileStart = v.strictObject({
-    // Progress photos (phase 4) and a complaint's photo (phase 5, D-095).
+    // Progress photos and a complaint's photo.
     kind: v.picklist(['measurement_photo', 'complaint_photo'], 'Only progress or complaint photos'),
     name: v.pipe(v.string(), v.trim(), v.minLength(1, 'Required'), v.maxLength(200)),
     content_type: v.pipe(v.string(), v.toLowerCase(), v.maxLength(100)),

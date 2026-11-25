@@ -2,7 +2,7 @@ import * as v from 'valibot';
 
 export const fileParams = v.object({ oid: v.pipe(v.string(), v.uuid('Unknown file')) });
 
-/** `POST /v1/files`: what the browser is about to upload. The limits themselves are in files.service.ts (D-069). */
+/** `POST /v1/files`: what the browser is about to upload. The limits themselves are in files.service.ts. */
 export const startSchema = v.strictObject({
     kind: v.picklist(
         [

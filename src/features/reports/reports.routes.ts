@@ -12,11 +12,11 @@ import { reportParams, reportQuery, trainerParams } from './reports.schema.ts';
 import { buildReport, trainerReport } from './reports.service.ts';
 
 /**
- * Reports (D-106), read only, computed when read:
+ * Reports, read only, computed when read:
  * - `GET /v1/reports/:key?from&to&compare` at a branch (`read Report`: branch managers, HQ);
  * - `GET /v1/hq/reports/:key?from&to&compare&branch_oid` at HQ, across the user's branches (a column per branch);
  * - `GET /v1/trainers/:oid/numbers?from&to` (`read Trainer`): one trainer's PT and class counts at this branch.
- *   A trainer sees only their own; `read Report` sees any (D-106, item 8).
+ *   A trainer sees only their own; `read Report` sees any.
  * Keys: revenue, dues, members, attendance, classes, trainers, shop, operations. Default range: the last 30 days.
  */
 export function reportsRouter(deps: AppDeps): Router {

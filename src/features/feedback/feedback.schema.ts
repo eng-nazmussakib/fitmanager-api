@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of complaints, NPS and ratings (phase 5, D-095, D-096). */
+/** Request schemas of complaints, NPS and ratings. */
 const uuid = (message: string) => v.pipe(v.string(), v.uuid(message));
 const text = (min: number, max: number) =>
     v.pipe(v.string(), v.trim(), v.minLength(min, min > 1 ? `At least ${min} characters` : 'Required'), v.maxLength(max, `At most ${max} characters`));
@@ -28,7 +28,7 @@ const complaintFields = {
     subject: text(3, 120),
     body: text(10, 2000),
     photo_file_oid: v.optional(v.nullable(uuid('Upload the photo first'))),
-    /** The staff member it is about, if any: hidden from them (D-095). */
+    /** The staff member it is about, if any: hidden from them. */
     named_staff_oid: v.optional(v.nullable(uuid('Unknown staff member')))
 };
 
@@ -49,7 +49,7 @@ export const escalateSchema = v.strictObject({ reason: text(3, 500) });
 
 export const npsCreate = v.pipe(
     v.strictObject({
-        /** Null: closed without answering (D-096); the card comes back after 90 days. */
+        /** Null: closed without answering; the card comes back after 90 days. */
         score: v.nullable(v.pipe(v.number(), v.integer('A whole number'), v.minValue(0), v.maxValue(10))),
         comment: optionalText(1000)
     }),

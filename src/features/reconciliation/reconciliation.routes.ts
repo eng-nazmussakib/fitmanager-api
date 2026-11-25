@@ -16,7 +16,7 @@ const query = v.object({
 });
 
 /**
- * `GET /v1/hq/reconciliation?from&to&branch_oid`: the phase 2 exit check (D-071), read only. HQ, with `read AuditLog`
+ * `GET /v1/hq/reconciliation?from&to&branch_oid`: does the money reconcile? Read only. HQ, with `read AuditLog`
  * (owner, HQ admin). Default range: the last 14 days (the pilot's two weeks); at most 13 months.
  */
 export function reconciliationRouter(deps: AppDeps): Router {

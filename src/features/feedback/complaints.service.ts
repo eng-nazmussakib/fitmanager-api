@@ -11,9 +11,9 @@ import { AppError } from '#src/lib/http.ts';
 import type { ComplaintCreate, ComplaintQuery, PortalComplaintCreate } from './feedback.schema.ts';
 
 /**
- * Complaints (phase 5, D-095). Filed by a member in the portal or by the desk on someone's behalf, at the member's
+ * Complaints. Filed by a member in the portal or by the desk on someone's behalf, at the member's
  * home branch (the desk's branch for a visitor). Status `open → in_progress → resolved`, then `closed` when the
- * member accepts the resolution, or by itself 7 days after it with no reply (worked out when read, D-075).
+ * member accepts the resolution, or by itself 7 days after it with no reply (worked out when read).
  * A complaint with no staff reply after `complaint_response_hours` is overdue (when read); HQ sees every overdue one.
  * A manager escalates to HQ; the member escalates a resolution they are not happy with, within those 7 days.
  * A complaint naming a staff member is hidden from that person; one naming a branch manager goes to HQ only.
@@ -160,7 +160,7 @@ export async function getComplaint(deps: ComplaintDeps, ctx: BranchContext, call
     return withBranchTx(deps.db, ctx, async tx => wire(deps, tx, await complaintIn(tx, visible(ctx, caller.hq, caller.userOid), oid), now, true));
 }
 
-/** The staff a complaint may name: anyone working at the branch. A branch manager's goes to HQ (D-095). */
+/** The staff a complaint may name: anyone working at the branch. A branch manager's goes to HQ. */
 export async function complaintStaff(tx: Queryable, branchOid: string) {
     return tx.query<{ oid: string; name: string; role: string }>(sql`
         select u.oid, u.name, a.role_code as role from staff_assignment a join app_user u on u.oid = a.user_oid
@@ -244,7 +244,7 @@ export async function replyComplaint(
                 resolved_at = case when ${next} = 'resolved' then ${now}::timestamptz else resolved_at end,
                 updated_at = ${now}
             where oid = ${oid}`);
-        // The member hears of it in the portal (D-108 a).
+        // The member hears of it in the portal.
         const member = c.member_oid ? await memberContact(tx, c.member_oid) : null;
         if (member)
             await notify(tx, {
@@ -293,7 +293,7 @@ async function escalate(tx: Queryable, ctx: BranchContext, c: ComplaintRow, by: 
         values (${c.branch_oid}, ${c.oid}, ${by === 'member' ? 'member' : 'staff'}, ${ctx.actor?.name ?? c.member_name}, ${`Escalated to HQ: ${reason}`},
             ${next === status ? null : next}, ${now})`);
     await recordAudit(tx, ctx, { action: 'escalate', entity: 'complaint', entityKey: c.code, before: { status }, after: { status: next, by, reason } });
-    // HQ's inbox; when the member escalated, the branch's too (D-108 b).
+    // HQ's inbox; when the member escalated, the branch's too.
     const who = by === 'member' ? c.member_name : (ctx.actor?.name ?? 'The branch manager');
     const message = {
         kind: 'complaint_escalated' as const,

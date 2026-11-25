@@ -3,7 +3,7 @@ import { sql } from '#src/db/sql.ts';
 
 import type { Measure } from './training.schema.ts';
 
-/** SQL of the training subsystem (phase 4). RLS limits every table to the transaction's branches (+ HQ's shared rows). */
+/** SQL of the training subsystem. RLS limits every table to the transaction's branches (+ HQ's shared rows). */
 
 export interface ExerciseRow {
     oid: string;
@@ -20,7 +20,7 @@ export interface ExerciseRow {
     active: boolean;
 }
 
-/** One exercise in a routine's `days`, as stored (names copied, D-087). */
+/** One exercise in a routine's `days`, as stored (names copied). */
 export interface DayExercise {
     exercise_oid: string;
     name: string;
@@ -193,7 +193,7 @@ export const trainingRepo = {
         return row;
     },
 
-    /** The last workout on a routine: the next day follows it (D-087). */
+    /** The last workout on a routine: the next day follows it. */
     lastOnRoutine: async (tx: Queryable, routineOid: string) => {
         const [row] = await tx.query<{ day_index: number | null; performed_on: string }>(sql`
             select day_index, performed_on::text from workout where routine_oid = ${routineOid} and day_index is not null

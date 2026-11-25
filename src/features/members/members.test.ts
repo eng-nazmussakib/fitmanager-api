@@ -46,7 +46,7 @@ const create = async (headers = desk, over: Record<string, unknown> = {}) => {
     return res.body.data as Record<string, unknown> & { oid: string; code: string };
 };
 
-describe('members: add and read (D-022)', () => {
+describe('members: add and read', () => {
     it('the desk adds a member: a per-branch code, +880 phone, Pending until the first sale', async () => {
         const res = await request(t.app)
             .post('/api/v1/members')
@@ -84,7 +84,7 @@ describe('members: add and read (D-022)', () => {
         expect((await create(deskDha)).code).toMatch(/^MEM-DHA-000001$/);
     });
 
-    it('refuses a bad member, and a mobile number that any branch already has (D-068 a)', async () => {
+    it('refuses a bad member, and a mobile number that any branch already has', async () => {
         for (const bad of [{ name: 'Al' }, { phone: '12345' }, { health_declared: false }, { gender: 'Other' }, { email: 'x' }, { extra: 1 }]) {
             await request(t.app).post('/api/v1/members').set(desk).send(body(bad)).expect(400);
         }
@@ -177,7 +177,7 @@ describe('members: edit, photo, suspend', () => {
             .expect(400);
     });
 
-    it('a suspension is a sanction (D-093): the status and the record follow; the timeline lists it', async () => {
+    it('a suspension is a sanction: the status and the record follow; the timeline lists it', async () => {
         const m = await create();
         await request(t.app).post(`/api/v1/members/${m.oid}/suspend`).set(manager).send({ reason: 'Abusive behaviour' }).expect(404);
         await suspendMember(t.app, manager, m.code, { today: '2026-11-19', now: '2026-11-19T11:00:00+06:00', days: 3 });
@@ -190,7 +190,7 @@ describe('members: edit, photo, suspend', () => {
         expect(tl.filter(e => e.kind === 'discipline').map(e => e.title)).toEqual(['Suspended (19 Nov 2026 to 21 Nov 2026)']);
     });
 
-    it('policies signed at the desk are recorded as accepted on paper (D-090)', async () => {
+    it('policies signed at the desk are recorded as accepted on paper', async () => {
         const created = await request(t.app)
             .post('/api/v1/members')
             .set(desk)
@@ -202,7 +202,7 @@ describe('members: edit, photo, suspend', () => {
     });
 });
 
-describe('members: transfer and anonymise (D-068)', () => {
+describe('members: transfer and anonymise', () => {
     it('a manager moves a member home; the old branch loses them, the new one has them; audited at both', async () => {
         const m = await create();
         await request(t.app).post(`/api/v1/members/${m.oid}/transfer`).set(desk).send({ to_branch_oid: DHA.oid, reason: 'Moved house' }).expect(403);

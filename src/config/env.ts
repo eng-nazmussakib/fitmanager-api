@@ -5,7 +5,7 @@ import * as v from 'valibot';
  * process with a list of every problem, instead of an `undefined` deep inside a request hours later.
  *
  * Locally the values come from Node's `--env-file` flag (package.json scripts); on Cloudflare from the Worker's vars
- * and secrets (`wrangler.jsonc`, `wrangler secret put`). The app uses no outside service but R2 (D-075).
+ * and secrets (`wrangler.jsonc`, `wrangler secret put`). The app uses no outside service but R2.
  */
 const bool = v.pipe(
     v.picklist(['true', 'false']),
@@ -73,12 +73,12 @@ const fields = v.object({
     PASSWORD_SCRYPT_R: v.optional(int(1, 32), '8'),
     PASSWORD_SCRYPT_P: v.optional(int(1, 16), '1'),
     /**
-     * Guest access on the hosted demo (D-076): comma-separated usernames of seeded accounts anyone may sign in as
+     * Guest access on the hosted demo: comma-separated usernames of seeded accounts anyone may sign in as
      * without a password (`POST /v1/auth/guest`). These accounts cannot be changed by anyone. Empty: no guest access.
      */
     GUEST_ACCOUNTS: v.optional(csv, ''),
 
-    /** Where member photos and documents live (D-058, D-069): `local` disk (development, tests) or R2 over its S3 API. */
+    /** Where member photos and documents live: `local` disk (development, tests) or R2 over its S3 API. */
     FILE_STORE: v.optional(v.picklist(['local', 's3']), 'local'),
     FILE_DIR: v.optional(str, 'storage/files'),
     /** R2: https://<account>.r2.cloudflarestorage.com. */
@@ -88,7 +88,7 @@ const fields = v.object({
     S3_ACCESS_KEY_ID: optional,
     S3_SECRET_ACCESS_KEY: optional,
     /**
-     * The most bytes all branches' photos and documents may take together (D-074, D-075). The default, 8 GiB, keeps
+     * The most bytes all branches' photos and documents may take together. The default, 8 GiB, keeps
      * the files bucket inside R2's free 10 GB per account with room to spare.
      */
     FILE_STORAGE_LIMIT_MB: v.optional(int(1, 10_000_000), '8192')

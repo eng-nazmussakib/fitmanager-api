@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of policies (phase 5, D-090, D-091). */
+/** Request schemas of policies. */
 const text = (min: number, max: number, label = 'Required') =>
     v.pipe(v.string(), v.trim(), v.minLength(min, label), v.maxLength(max, `At most ${max} characters`));
 const optionalText = (max: number) =>
@@ -55,7 +55,7 @@ export const policyUpdate = v.pipe(
 );
 export type PolicyUpdate = v.InferOutput<typeof policyUpdate>;
 
-/** A new version (D-090): "accept again" makes every member accept it (after the grace period, D-091). */
+/** A new version: "accept again" makes every member accept it (after the grace period). */
 export const versionCreate = v.strictObject({
     mode: v.picklist(['accept_again', 'wording_only'], 'Accept again, or wording only'),
     change_note: optionalText(500),

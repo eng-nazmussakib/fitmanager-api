@@ -1,5 +1,5 @@
 /**
- * Cloudflare Workers entry: the hosted demo (D-075). The same `createApp(deps)` as `server.ts`, behind
+ * Cloudflare Workers entry: the hosted demo. The same `createApp(deps)` as `server.ts`, behind
  * `handleAsNodeRequest` from `cloudflare:node`.
  *
  * Two Workers rules shape this file:
@@ -10,8 +10,8 @@
  *   so the app is built in global scope from `env` (`cloudflare:workers`): its cost moves from the first request
  *   to start-up, which has its own 1 s budget. Nothing here may open a connection at import.
  *
- * What differs from Node: a memory cache per isolate, rate limits in a Durable Object, files in R2 (D-058). There
- * is no `scheduled` handler: the demo has no cron jobs (D-075).
+ * What differs from Node: a memory cache per isolate, rate limits in a Durable Object, files in R2. There
+ * is no `scheduled` handler: the demo has no cron jobs.
  */
 import { AsyncLocalStorage } from 'node:async_hooks';
 
@@ -61,7 +61,7 @@ const dbFacade: Db = {
     close: () => Promise.resolve()
 };
 
-/** Workers have no disk: files need FILE_STORE=s3 (R2 over its S3 API, D-058). Until then every file call says so. */
+/** Workers have no disk: files need FILE_STORE=s3 (R2 over its S3 API). Until then every file call says so. */
 const noFiles: FileStore = {
     kind: 's3',
     uploadTarget: () => Promise.reject(new AppError(503, 'File storage is not configured')),

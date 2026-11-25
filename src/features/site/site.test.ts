@@ -25,7 +25,7 @@ interface Group {
 }
 const groups = async () => (await request(t.app).get('/api/v1/public/site-groups').expect(200)).body.data as Group[];
 
-describe('site groups (D-040)', () => {
+describe('site groups', () => {
     it('public list: groups in order, with their section and page; four required groups', async () => {
         const rows = await groups();
         expect(rows.map(r => r.key)).toEqual(['hero', 'services', 'plans', 'facilities', 'reviews', 'trainers', 'blog', 'branches', 'gallery', 'faq']);
@@ -69,7 +69,7 @@ describe('site groups (D-040)', () => {
     });
 });
 
-describe('site groups: audit log (phase 1)', () => {
+describe('site groups: audit log', () => {
     interface AuditRow {
         branch_oid: string;
         actor_name: string | null;

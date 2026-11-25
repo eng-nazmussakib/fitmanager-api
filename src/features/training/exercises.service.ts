@@ -11,8 +11,8 @@ import { type ExerciseRow, trainingRepo } from './training.repo.ts';
 import type { ExerciseCreate, ExerciseQuery, ExerciseUpdate } from './training.schema.ts';
 
 /**
- * The exercise library (phase 4, D-084): HQ's exercises, read by every branch, plus each branch's own. Each has up
- * to 3 small photos and a short video (D-085), uploaded through `/v1/files` at the owning branch (HQ for HQ's).
+ * The exercise library: HQ's exercises, read by every branch, plus each branch's own. Each has up
+ * to 3 small photos and a short video, uploaded through `/v1/files` at the owning branch (HQ for HQ's).
  * A branch edits only its own; HQ's are read-only there. Exercises are never deleted, only made inactive, so the
  * routines and workouts that name them keep working.
  */

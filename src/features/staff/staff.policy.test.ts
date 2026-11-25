@@ -8,7 +8,7 @@ const DHA = { oid: 'dha', kind: 'BRANCH' as const };
 const actor = (role: StaffRole, branch: Actor['branch']): Actor => ({ oid: 'me', role, branch });
 const at = (branch: Actor['branch'], role: StaffRole): Placement => ({ branch_oid: branch.oid, branch_kind: branch.kind, role });
 
-describe('staff policy (D-055)', () => {
+describe('staff policy', () => {
     it('roles each actor may hand out', () => {
         expect(assignableRoles(actor('OWNER', HQ), HQ)).toEqual(['OWNER', 'HQ_ADMIN']);
         expect(assignableRoles(actor('OWNER', HQ), GUL)).toEqual(['BRANCH_MANAGER', 'FRONT_DESK', 'TRAINER']);

@@ -12,7 +12,7 @@ import type { TransferCreate } from './stock.schema.ts';
 import type { StockDeps } from './stock.service.ts';
 
 /**
- * Stock transfers between branches (phase 6, D-101). The receiving branch's manager asks another branch for products;
+ * Stock transfers between branches. The receiving branch's manager asks another branch for products;
  * that branch's manager sends what they can (`transfer_out` at their average cost) or rejects it, and the goods are in
  * transit until the asking branch receives them (`transfer_in` at the sender's cost). Less arriving than was sent is a
  * shortfall: the sent quantity comes in, then an adjustment (`shortfall`) takes the missing units off, so both ledgers

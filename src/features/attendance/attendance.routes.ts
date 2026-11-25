@@ -10,14 +10,14 @@ import { backdateSchema, checkInSchema, daysQuery, evaluateSchema, oidParams } f
 import { type AttendanceDeps, backdate, checkIn, checkOut, evaluate, memberAttendance, occupancy, today } from './attendance.service.ts';
 
 /**
- * Attendance at the branch in `X-Branch-Id` (phase 2 step 6).
+ * Attendance at the branch in `X-Branch-Id`.
  * - `POST /v1/attendance/evaluate` `{ code | member_oid }`: the access decision, nothing written
  * - `POST /v1/attendance/check-in` (`create Attendance`; an override needs `create AttendanceOverride`)
  * - `POST /v1/attendance/:oid/check-out` (`update Attendance`)
  * - `POST /v1/attendance/backdated` `{ entries: [...] }`: one or many visits after the fact (`manage Attendance`)
- * - `GET /v1/attendance/today` (visitors included, D-066), `GET /v1/attendance/occupancy`
+ * - `GET /v1/attendance/today` (visitors included), `GET /v1/attendance/occupancy`
  * - `GET /v1/members/:oid/attendance?days=`: an own member's visit days, at every branch
- * Live occupancy: the console polls `occupancy` (no push channel yet; see the phase 2 doc).
+ * Live occupancy: the console polls `occupancy` (there is no push channel).
  */
 export function attendanceRouter(deps: AppDeps): Router {
     const router = Router();

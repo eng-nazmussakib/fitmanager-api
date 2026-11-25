@@ -2,7 +2,7 @@ import * as v from 'valibot';
 
 import { bdMobile } from '#src/features/members/members.schema.ts';
 
-/** Request schemas of the catalogue and suppliers (phase 6, D-099). */
+/** Request schemas of the catalogue and suppliers. */
 const text = (min: number, max: number, label = 'Required') =>
     v.pipe(v.string(), v.trim(), v.minLength(min, label), v.maxLength(max, `At most ${max} characters`));
 const optionalText = (max: number) =>

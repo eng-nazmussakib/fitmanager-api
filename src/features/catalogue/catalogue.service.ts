@@ -11,7 +11,7 @@ import { AppError } from '#src/lib/http.ts';
 import type { ProductCreate, ProductQuery, ProductUpdate, SupplierCreate, SupplierUpdate } from './catalogue.schema.ts';
 
 /**
- * The catalogue and suppliers (phase 6, D-099): HQ master data on the HQ row (no RLS, like class types and policies):
+ * The catalogue and suppliers: HQ master data on the HQ row (no RLS, like class types and policies):
  * every branch reads them, only HQ writes them (CASL, at HQ). Prices are HQ's; branches never override them. A
  * product's VAT rate is its own, or the HQ rate in force when it has none. Up to 3 photos (`product_photo`, uploaded at
  * HQ). Products and suppliers are switched off, never deleted, so old invoices and orders keep naming them.

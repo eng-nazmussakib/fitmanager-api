@@ -28,7 +28,7 @@ const listQuery = v.object({ all: v.optional(v.picklist(['0', '1'])) });
 const versionQuery = v.object({ version: v.optional(v.pipe(v.string(), v.regex(/^\d{1,3}$/), v.transform(Number))) });
 
 /**
- * Policies (phase 5; D-090, D-091).
+ * Policies.
  * - Every staff console (`read Policy`): `GET /v1/policies`, `GET /v1/policies/:oid[?version=]`, `GET /v1/policy-clauses`.
  * - HQ (`create`/`update Policy`): `POST /v1/hq/policies`, `PATCH /v1/hq/policies/:oid`, `POST /v1/hq/policies/:oid/versions`.
  * - A member at the home branch: `GET /v1/members/:oid/policies` (`read Member`), `POST /v1/members/:oid/policies/accept`

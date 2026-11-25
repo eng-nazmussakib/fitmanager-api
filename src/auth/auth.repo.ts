@@ -18,7 +18,7 @@ export interface BranchRef {
     kind: BranchKind;
 }
 
-/** The role a staff member holds at one branch, with the rules it gives there (D-034). */
+/** The role a staff member holds at one branch, with the rules it gives there. */
 export interface StaffAssignment {
     branch: BranchRef;
     role: StaffRole;
@@ -34,13 +34,13 @@ export interface AuthUser {
     status: 'Active' | 'Inactive';
     /** HQ staff: every active branch, with the role of the HQ assignment. */
     all_branches: boolean;
-    /** A temporary password is set (D-054): only /auth/me, change-password and sign-out work until it is replaced. */
+    /** A temporary password is set: only /auth/me, change-password and sign-out work until it is replaced. */
     must_change_password: boolean;
-    /** A member's portal account (D-064): whose data `/v1/me/*` serves. Null for staff. */
+    /** A member's portal account: whose data `/v1/me/*` serves. Null for staff. */
     member_oid: string | null;
     /** Explicit rows, plus (with `all_branches`) the branches the user reaches through HQ. Active branches only. */
     assignments: StaffAssignment[];
-    /** A staff member's suspensions not overturned (D-093): sign-in is refused on their days (`suspendedUntil`). */
+    /** A staff member's suspensions not overturned: sign-in is refused on their days (`suspendedUntil`). */
     suspensions: { starts_on: string; ends_on: string }[];
 }
 
@@ -135,7 +135,7 @@ export type RotateResult = { status: 'ok'; userOid: string; token: string; famil
 export const refreshTokens = {
     /**
      * Deletes the user's refresh tokens that expired or were revoked over a day ago (kept a day for looking into an
-     * incident). Run at each sign-in instead of a nightly job (D-075), so the table only holds live sessions.
+     * incident). Run at each sign-in instead of a nightly job, so the table only holds live sessions.
      */
     async prune(db: Queryable, userOid: string): Promise<void> {
         await db.query(sql`

@@ -2,7 +2,7 @@
 # Run "login", then the other requests reuse its tokens.
 @base = http://localhost:3000
 @api = {{base}}/api/v1
-# Seeded branch ids (fitmanager-infra/db/seeds/demo/001_branches_and_staff.sql). Rules come from the assignment at X-Branch-Id (D-034).
+# Seeded branch ids (fitmanager-infra/db/seeds/demo/001_branches_and_staff.sql). Rules come from the assignment at X-Branch-Id.
 @hq = 00000000-0000-4000-8000-000000000001
 @gulshan = 00000000-0000-4000-8000-000000000002
 
@@ -40,7 +40,7 @@ Content-Type: application/json
 
 { "refresh_token": "{{refresh}}" }
 
-### Public site groups (D-040): each group's landing section and page switches
+### Public site groups: each group's landing section and page switches
 GET {{api}}/public/site-groups
 
 ### Blog off the home page, its page kept (a required group answers 409)
@@ -51,7 +51,7 @@ Content-Type: application/json
 
 { "section": false, "page": true }
 
-### HQ settings (D-037, D-057, D-063): VAT rate, BIN, VAT-inclusive prices, freeze range
+### HQ settings: VAT rate, BIN, VAT-inclusive prices, freeze range
 GET {{api}}/hq/settings
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
@@ -101,12 +101,12 @@ Content-Type: application/json
 
 { "code": "EID25", "label": "Eid offer", "percent": 25, "valid_from": "2026-12-01", "valid_to": "2026-12-15" }
 
-### Staff at HQ (D-055): rows with assignments and `manageable`, plus the roles you may hand out
+### Staff at HQ: rows with assignments and `manageable`, plus the roles you may hand out
 GET {{api}}/hq/staff?status=Active
 Authorization: Bearer {{login.response.body.data.access_token}}
 X-Branch-Id: {{hq}}
 
-### Add a trainer with a temporary password (they must change it at sign-in, D-054)
+### Add a trainer with a temporary password (they must change it at sign-in)
 POST {{api}}/hq/staff
 Authorization: Bearer {{login.response.body.data.access_token}}
 X-Branch-Id: {{hq}}
@@ -118,7 +118,7 @@ Content-Type: application/json
 GET {{api}}/auth/sessions
 Authorization: Bearer {{login.response.body.data.access_token}}
 
-### Phase 2: a member at Gulshan (phone as 017…, stored as +880…)
+### A member at Gulshan (phone as 017…, stored as +880…)
 # @name member
 POST {{api}}/members
 Authorization: Bearer {{token}}
@@ -193,7 +193,7 @@ GET {{api}}/hq/reconciliation?from=2026-11-06&to=2026-11-19
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
 
-### Reports (D-106): revenue, dues, members, attendance, classes, trainers, shop, operations
+### Reports: revenue, dues, members, attendance, classes, trainers, shop, operations
 GET {{api}}/reports/revenue?from=2026-10-21&to=2026-11-19&compare=1
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -203,7 +203,7 @@ GET {{api}}/hq/reports/attendance?from=2026-08-22&to=2026-11-19
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
 
-### Export the member list (D-107): a page at a time; the first page writes the audit row
+### Export the member list: a page at a time; the first page writes the audit row
 POST {{api}}/exports/members
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -227,7 +227,7 @@ Content-Type: application/json
 
 { "password": "Welcome123" }
 
-### Phase 3: this week's timetable at Gulshan (sessions are made from the weekly rules when read)
+### This week's timetable at Gulshan (sessions are made from the weekly rules when read)
 GET {{api}}/classes/schedule
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -268,7 +268,7 @@ GET {{api}}/public/classes?branch=gulshan
 ###
 GET {{api}}/public/trainers?branch=gulshan
 
-### Phase 4: the exercise library at Gulshan (HQ's and the branch's own)
+### The exercise library at Gulshan (HQ's and the branch's own)
 GET {{api}}/exercises?muscle=quads
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -297,7 +297,7 @@ GET {{api}}/members/{{member}}/measurements
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
 
-### Phase 5: HQ's policies (D-090), and a member's acceptances (D-091)
+### HQ's policies, and a member's acceptances
 GET {{api}}/policies
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -315,7 +315,7 @@ Content-Type: application/json
 
 {}
 
-### Discipline cases (D-092): the list, then record one about a member
+### Discipline cases: the list, then record one about a member
 GET {{api}}/incidents?status=open
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -337,7 +337,7 @@ Content-Type: application/json
 
 { "level": "verbal", "reason": "Please use headphones on the floor." }
 
-### Complaints (D-095) and feedback (D-096)
+### Complaints and feedback
 GET {{api}}/complaints?overdue=1
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -351,7 +351,7 @@ X-Branch-Id: {{gulshan}}
 GET {{api}}/public/policies/gym-rules
 
 
-### Phase 6: the equipment register at Gulshan (service due is worked out when read)
+### The equipment register at Gulshan (service due is worked out when read)
 GET {{api}}/equipment?due=1
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -361,7 +361,7 @@ GET {{api}}/equipment-tickets
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
 
-### HQ's catalogue (D-099) and Gulshan's stock, the low ones only (D-101)
+### HQ's catalogue and Gulshan's stock, the low ones only
 GET {{api}}/products
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -371,7 +371,7 @@ GET {{api}}/stock?low=1
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
 
-### Purchase orders (D-100) and stock transfers
+### Purchase orders and stock transfers
 GET {{api}}/purchase-orders
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -381,7 +381,7 @@ GET {{api}}/transfers
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
 
-### A POS sale to a walk-in (D-102): price it first, then sell (set @product from /pos/products)
+### A POS sale to a walk-in: price it first, then sell (set @product from /pos/products)
 @product = 00000000-0000-0000-0000-000000000000
 POST {{api}}/pos/quote
 Authorization: Bearer {{token}}
@@ -403,7 +403,7 @@ GET {{api}}/hq/stock
 Authorization: Bearer {{token}}
 X-Branch-Id: {{hq}}
 
-### Phase 7b (D-108): the bell. The staff inbox at Gulshan, then mark it all read.
+### The bell. The staff inbox at Gulshan, then mark it all read.
 GET {{api}}/inbox
 Authorization: Bearer {{token}}
 X-Branch-Id: {{gulshan}}
@@ -432,7 +432,7 @@ Content-Type: application/json
 
 {}
 
-### Phase 7c (D-109): the public blog, offers and photos
+### The public blog, offers and photos
 GET {{api}}/public/posts
 
 ###

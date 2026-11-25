@@ -8,8 +8,8 @@ import { AppError } from '#src/lib/http.ts';
 import { type AdjustReason, lockStock, moveStock } from './stock.repo.ts';
 
 /**
- * A branch's stock (phase 6, D-101): what is on hand of every active product, its average cost (managers only), the
- * reorder level and a "low" badge at or below it (listed, no messages, D-075); each product's ledger; adjustments
+ * A branch's stock: what is on hand of every active product, its average cost (managers only), the
+ * reorder level and a "low" badge at or below it (listed, no messages); each product's ledger; adjustments
  * with a reason; and what the other branches hold, to ask for a transfer. HQ holds no stock and reads every
  * branch's (`read Stock` at HQ).
  */

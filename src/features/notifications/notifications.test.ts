@@ -13,7 +13,7 @@ beforeAll(async () => {
 });
 afterAll(() => t.close());
 
-describe('expiry reminders, written when the messages are read (D-070 f, D-075)', () => {
+describe('expiry reminders, written when the messages are read', () => {
     it('7 days and 1 day before the end, once per plan; nothing for a member who renewed; in-app only', async () => {
         const plans = (await request(t.app).get('/api/v1/plans').set(desk).expect(200)).body.data as { oid: string; code: string }[];
         const monthly = plans.find(p => p.code === 'GUL-SIN-1M')?.oid;

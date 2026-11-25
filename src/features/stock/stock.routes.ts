@@ -37,7 +37,7 @@ import { adjust, hqStock, movements, setReorderLevel, type StockDeps, stockElsew
 import { closeTransfer, getTransfer, listTransfers, receiveTransfer, requestTransfer, sendTransfer } from './transfers.service.ts';
 
 /**
- * Stock, purchase orders and transfers (phase 6, D-100, D-101).
+ * Stock, purchase orders and transfers.
  * - A branch (`read Stock`): `GET /v1/stock[?low=1&q=]`, `GET /v1/stock/:product_oid/movements`; managers (`update
  *   Stock`): `POST /v1/stock/:product_oid/adjust`, `PUT /v1/stock/:product_oid/reorder-level`; costs show to them only.
  *   `GET /v1/stock/elsewhere?product_oid=` (`read Transfer`): the other branches' counts.

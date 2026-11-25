@@ -63,10 +63,10 @@ interface Template {
 const deskPlans = async (h = desk) => (await request(t.app).get('/api/v1/plans').set(h).expect(200)).body.data as Plan[];
 const templates = async () => (await request(t.app).get('/api/v1/hq/plan-templates').set(owner).expect(200)).body.data as Template[];
 
-describe('plans at the desk (D-044)', () => {
+describe('plans at the desk', () => {
     it('a branch sells every template at its own price, as the mock', async () => {
         const plans = await deskPlans();
-        // 12 memberships and 3 PT packages (D-079).
+        // 12 memberships and 3 PT packages.
         expect(plans).toHaveLength(15);
         expect(plans.every(p => p.branch_oid === GUL.oid && p.sellable)).toBe(true);
         expect(plans.filter(p => (p as Plan & { kind: string }).kind === 'pt').map(p => p.code)).toEqual(['GUL-PT-1', 'GUL-PT-8', 'GUL-PT-16']);
@@ -131,7 +131,7 @@ describe('plans at HQ', () => {
         await request(t.app).patch(`/api/v1/hq/plans/${plan!.oid}`).set(hqAdmin).send({ price: 1 }).expect(404);
         const [tpl] = await templates();
         await request(t.app).post('/api/v1/hq/plans').set(hqAdmin).send({ branch_oid: GUL.oid, template_oid: tpl!.oid }).expect(404);
-        // With every-branch access, the same role manages them (D-044).
+        // With every-branch access, the same role manages them.
         const wide = await hqAdminAt('plans.admin.all', { all_branches: true });
         expect((await request(t.app).get('/api/v1/hq/plans').set(wide).expect(200)).body.data).toHaveLength(45);
     });

@@ -6,7 +6,7 @@ import { sql } from '#src/db/sql.ts';
 import { AppError } from '#src/lib/http.ts';
 
 /**
- * Guest access on the hosted demo (D-076). `GUEST_ACCOUNTS` names seeded accounts that anyone may sign in as without
+ * Guest access on the hosted demo. `GUEST_ACCOUNTS` names seeded accounts that anyone may sign in as without
  * a password, so the demo's visitors share them. To keep them usable for the next visitor, nobody can change them:
  * not their password, profile, roles, status or sessions, and for the guest member not the portal account, a transfer
  * or anonymising. Everything else (members, sales, check-ins) stays open: the demo data is reset from the seeds.

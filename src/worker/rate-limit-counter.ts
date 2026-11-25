@@ -1,5 +1,5 @@
 /**
- * The Durable Object behind rate limits on Workers (phase 1, D-026): one instance per counted key
+ * The Durable Object behind rate limits on Workers: one instance per counted key
  * (`login:<ip>:<username>`), named by `DurableObjectStore` in `src/lib/rate-limit.ts`. SQLite-backed, which the
  * Workers Free plan includes. Local development and tests count in memory instead.
  *

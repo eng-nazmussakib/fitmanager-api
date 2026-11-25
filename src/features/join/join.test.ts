@@ -15,7 +15,7 @@ afterAll(() => t.close());
 const pendingAtGulshan = async () =>
     ((await request(t.app).get('/api/v1/members?status=Pending&size=100').set(desk).expect(200)).body.data as { rows: { name: string; phone: string }[] }).rows;
 
-describe('public join and enquiry forms (D-022, D-070 e)', () => {
+describe('public join and enquiry forms', () => {
     it('an enquiry creates a Pending web member at the branch, with the message in the notes', async () => {
         const res = await request(t.app)
             .post('/api/v1/public/enquiries')

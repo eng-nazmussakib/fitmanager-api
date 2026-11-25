@@ -31,7 +31,7 @@ import {
 } from './equipment.service.ts';
 
 /**
- * Equipment and maintenance (phase 6, D-098), at a branch.
+ * Equipment and maintenance, at a branch.
  * - `read Equipment`: `GET /v1/equipment[?status=&due=1&q=]`, `GET /v1/equipment/:oid` (with its tickets and services),
  *   `GET /v1/equipment-tickets[?status=open|closed|all]`.
  * - `create Equipment` (any staff): `POST /v1/equipment/:oid/tickets`.

@@ -79,7 +79,7 @@ const trainers = async (h = desk) => (await request(t.app).get('/api/v1/trainers
 const sam = async () => (await trainers()).find(x => x.slug === 'sam-cole')!;
 const tom = async () => (await trainers()).find(x => x.slug === 'tom-blake')!;
 
-describe('PT packages (D-079)', () => {
+describe('PT packages', () => {
     it('a PT package goes with a membership, never on the public price list, and shows its sessions', async () => {
         const list = await plans();
         const none = await member({ membership: false, pt: null });
@@ -112,7 +112,7 @@ describe('PT packages (D-079)', () => {
     });
 });
 
-describe('PT sessions (D-079)', () => {
+describe('PT sessions', () => {
     it('free slots follow availability, the hours, classes and other sessions', async () => {
         const s = await sam();
         const slots = (await request(t.app).get(`/api/v1/pt/slots?trainer_oid=${s.oid}&date=2026-11-19`).set(desk).expect(200)).body.data as {
@@ -222,7 +222,7 @@ describe('PT sessions (D-079)', () => {
     });
 });
 
-describe('trainers (D-078)', () => {
+describe('trainers', () => {
     it('lists the branch’s trainers; public pages show the public ones without phone numbers', async () => {
         const list = await trainers();
         expect(list.map(x => x.name)).toEqual(['Nabila Islam', 'Sam Cole', 'Shakib Hasan', 'Tahmina Rahman', 'Tom Blake']);
@@ -346,7 +346,7 @@ describe('class types (HQ) and rooms', () => {
     });
 });
 
-describe('lockers and maintenance (D-082)', () => {
+describe('lockers and maintenance', () => {
     interface Locker {
         oid: string;
         number: string;

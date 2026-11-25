@@ -14,8 +14,8 @@ import type { OneOffCreate, ScheduleCreate, ScheduleUpdate, SessionUpdate } from
 import { type Caller, type SchedulingDeps, trainerWire } from './trainers.service.ts';
 
 /**
- * Classes and booking (phase 3, D-080, D-081). A weekly rule makes one session a day; sessions are written when
- * the timetable is read (up to `FILL_DAYS` ahead), never by a job (D-075). Bookings: home-branch members with a
+ * Classes and booking. A weekly rule makes one session a day; sessions are written when
+ * the timetable is read (up to `FILL_DAYS` ahead), never by a job. Bookings: home-branch members with a
  * running membership; a full class puts the member on the waitlist, and a freed place goes to the first in line
  * with an in-app message. Cancelling inside the window counts like a no-show; so many of those block booking.
  * Bookings still `Booked` when their class ends become no-shows when read.
@@ -23,7 +23,7 @@ import { type Caller, type SchedulingDeps, trainerWire } from './trainers.servic
 
 /** How far ahead the timetable is filled in. */
 export const FILL_DAYS = 28;
-/** A desk check-in this long before a booked class (or during it) marks the booking Attended (D-081). */
+/** A desk check-in this long before a booked class (or during it) marks the booking Attended. */
 export const ARRIVAL_MINUTES = 30;
 
 /** The Saturday on or before `date` (the gym's week runs Saturday to Friday). */
@@ -161,7 +161,7 @@ const whenOf = (s: Pick<SessionRow, 'starts_at'>) => {
     return `${shortDate(local.date)} at ${clock12(local.time)}`;
 };
 
-/** Until when the member may not book, or null: `noshow_limit` strikes within `noshow_window_days` (D-081). */
+/** Until when the member may not book, or null: `noshow_limit` strikes within `noshow_window_days`. */
 export async function bookingBlockedUntil(tx: Queryable, memberOid: string, now: Date): Promise<Date | null> {
     const rules = await readOrgRules(tx);
     const strikes = await schedulingRepo.strikes(tx, memberOid, new Date(now.getTime() - rules.noshow_window_days * 86_400_000));
@@ -211,7 +211,7 @@ export async function bookMember(tx: Queryable, ctx: BranchContext, now: DhakaNo
     return { booking: bookingWire(booking), message: status === 'Waitlist' ? `${m.name} added to the waitlist` : `${m.name} booked` };
 }
 
-/** Gives free places to the waitlist, oldest first, with a message each (D-081). */
+/** Gives free places to the waitlist, oldest first, with a message each. */
 async function promote(tx: Queryable, ctx: BranchContext, now: DhakaNow, sessionOid: string) {
     const s = await sessionAt(tx, ctx, sessionOid);
     if (s.cancelled_at || s.starts_at <= now.at) return;
@@ -315,7 +315,7 @@ export async function deskBook(deps: SchedulingDeps, ctx: BranchContext, now: Dh
 }
 
 /**
- * For attendance (D-081): a desk check-in from `ARRIVAL_MINUTES` before a booked class until its end marks it
+ * For attendance: a desk check-in from `ARRIVAL_MINUTES` before a booked class until its end marks it
  * Attended. Runs in the check-in's transaction; returns the classes marked.
  */
 export async function markArrival(tx: Queryable, ctx: BranchContext, memberOid: string, at: Date): Promise<string[]> {

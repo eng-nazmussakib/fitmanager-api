@@ -14,7 +14,7 @@ import { type SetRow, trainingRepo, type WorkoutRow } from './training.repo.ts';
 import type { WorkoutCreate, WorkoutUpdate } from './training.schema.ts';
 
 /**
- * Workout logs (phase 4, D-088): a session's exercises and sets, logged by the member (portal), their trainer or a
+ * Workout logs: a session's exercises and sets, logged by the member (portal), their trainer or a
  * manager. A workout can be dated up to 7 days back and changed or deleted for 7 days after its date. Personal
  * records and the charts are computed from the sets when read (records.ts).
  */
@@ -196,7 +196,7 @@ export async function deleteWorkout(
 const WEEKS = 12;
 
 /**
- * `GET /v1/members/:oid/progress` and the portal's (D-088): personal records per exercise, a line per exercise for
+ * `GET /v1/members/:oid/progress` and the portal's: personal records per exercise, a line per exercise for
  * the charts, workouts a week for 12 weeks, and the totals.
  */
 export async function progress(deps: TrainingDeps, ctx: BranchContext, memberOid: string, today: string) {

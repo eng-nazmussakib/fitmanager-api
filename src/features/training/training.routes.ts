@@ -44,7 +44,7 @@ import { deleteWorkout, listWorkouts, logWorkout, progress, updateWorkout } from
 const allQuery = v.object({ all: v.optional(v.picklist(['0', '1'])) });
 
 /**
- * Training (phase 4; D-084 to D-089).
+ * Training.
  *
  * Library, at a branch or HQ (`X-Branch-Id`): `GET /v1/exercises` (`read Exercise`), `GET /v1/exercises/:oid`,
  * `POST /v1/exercises` (`create Exercise`), `PATCH /v1/exercises/:oid` (`update Exercise`; a branch only its own);
@@ -53,7 +53,7 @@ const allQuery = v.object({ all: v.optional(v.picklist(['0', '1'])) });
  * A member, at their home branch: `GET|POST /v1/members/:oid/routine`, `POST /v1/members/:oid/routine/end` (Routine);
  * `GET|POST /v1/members/:oid/workouts`, `PATCH|DELETE /v1/workouts/:oid`, `GET /v1/members/:oid/progress` (Workout);
  * `GET|POST /v1/members/:oid/measurements`, `DELETE /v1/measurements/:oid` (Measurement). A trainer writes only for
- * their own clients and sees only their clients' photos (D-086).
+ * their own clients and sees only their clients' photos.
  * Portal: `GET /v1/me/exercises`, `GET|POST /v1/me/routine`, `GET /v1/me/routine/templates`, `POST /v1/me/routine/end`,
  * `GET|POST /v1/me/workouts`, `PATCH|DELETE /v1/me/workouts/:oid`, `GET /v1/me/progress`, `GET|POST /v1/me/measurements`,
  * `DELETE /v1/me/measurements/:oid`, `POST /v1/me/files` + `POST /v1/me/files/:oid/complete` (progress photos).

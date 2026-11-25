@@ -1,7 +1,7 @@
 import { createTestApp, type TestApp } from '#src/testing/test-app.ts';
 
 /**
- * Phase 1 exit: every write produces an audit entry. This test lists every write route the app mounts and fails
+ * Every write produces an audit entry. This test lists every write route the app mounts and fails
  * when a route is in neither list below, so a new POST/PUT/PATCH/DELETE cannot ship without a decision:
  * - AUDITED: the route writes an audit row in the same transaction; the value names the test that proves it.
  * - EXEMPT: the route writes nothing that belongs in the audit log; the value says why.
@@ -48,7 +48,7 @@ const AUDITED: Record<string, string> = {
     'POST /v1/branch/staff/:oid/activate': 'staff.test.ts › staff: audit log',
     'POST /v1/branch/staff/:oid/reset-password': 'staff.test.ts › staff: audit log',
     'POST /v1/branch/staff/:oid/sign-out': 'staff.test.ts › staff: audit log',
-    // Phase 7a (D-107): the first page of an export writes the audit row.
+    // The first page of an export writes the audit row.
     'POST /v1/exports/members': 'exports.test.ts › the member list: … one audit row for the first page only',
     'POST /v1/exports/payments': 'exports.test.ts › payments in a range, a page at a time',
     'POST /v1/exports/stock': 'exports.test.ts › stock, with the costs for a manager',
@@ -65,7 +65,7 @@ const AUDITED: Record<string, string> = {
     'PATCH /v1/website/gallery/:oid': 'website.test.ts › the gallery',
     'DELETE /v1/website/gallery/:oid': 'website.test.ts › the gallery',
     'PUT /v1/website/branch': 'website.test.ts › branch pages (branch_page)',
-    // Phase 3 (D-078 to D-083)
+    // Scheduling
     'POST /v1/trainers': 'pt-facilities.test.ts › PT, trainers and facilities: audit log',
     'PATCH /v1/trainers/:oid': 'pt-facilities.test.ts › PT, trainers and facilities: audit log',
     'PUT /v1/trainers/:oid/availability': 'pt-facilities.test.ts › PT, trainers and facilities: audit log',
@@ -116,7 +116,7 @@ const AUDITED: Record<string, string> = {
     'POST /v1/me/measurements': 'portal-training.test.ts › the portal: audit log',
     'DELETE /v1/me/measurements/:oid': 'portal-training.test.ts › the portal: audit log',
     'POST /v1/me/files/:oid/complete': 'files.service.ts completeUpload(): the same audited path as POST /v1/files/:oid/complete (portal-training.test.ts)',
-    // Phase 5 (D-090 to D-097)
+    // Governance
     'POST /v1/hq/policies': 'policies.test.ts › policies: audit log',
     'PATCH /v1/hq/policies/:oid': 'policies.test.ts › policies: audit log',
     'POST /v1/hq/policies/:oid/versions': 'policies.test.ts › policies: audit log',
@@ -166,10 +166,10 @@ const AUDITED: Record<string, string> = {
 };
 
 const EXEMPT: Record<string, string> = {
-    'POST /v1/inbox/read': "a person's read marks on their own inbox (staff_message_read: who and when), not business data (D-108 d)",
-    'POST /v1/me/notifications/read': "the member's read marks on their own messages (notification.read_at), not business data (D-108 d)",
+    'POST /v1/inbox/read': "a person's read marks on their own inbox (staff_message_read: who and when), not business data",
+    'POST /v1/me/notifications/read': "the member's read marks on their own messages (notification.read_at), not business data",
     'POST /v1/auth/login': 'session start; the session itself is the refresh_token row (user, time, user agent)',
-    'POST /v1/auth/guest': 'guest session start (D-076), like sign-in: the refresh_token row records user, time and user agent',
+    'POST /v1/auth/guest': 'guest session start, like sign-in: the refresh_token row records user, time and user agent',
     'POST /v1/auth/refresh': 'token rotation inside an existing session (refresh_token rows)',
     'POST /v1/auth/logout': 'session end (refresh_token revoked_at)',
     'POST /v1/auth/change-password': "the user's own password (no branch context; app_user.updated_at, sessions revoked)",

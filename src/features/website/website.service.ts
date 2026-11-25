@@ -8,7 +8,7 @@ import { AppError } from '#src/lib/http.ts';
 import type { OfferCreate, OfferUpdate, PostCreate, PostUpdate } from './website.schema.ts';
 
 /**
- * The public website's content (phase 7c, D-109): the blog, the offers, the gallery and each branch's description.
+ * The public website's content: the blog, the offers, the gallery and each branch's description.
  * HQ writes the blog and the offers (on the HQ row); the gallery is per branch (HQ any, a branch manager their own).
  * The public reads answer only what is live: posts published by now (a future date is scheduled, checked when read),
  * offers running today, photos not deleted. These tables have no RLS (public master data, like the catalogue).

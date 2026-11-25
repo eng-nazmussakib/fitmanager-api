@@ -31,7 +31,7 @@ export interface MemberRow {
     photo_file_oid: string | null;
     joined_on: string;
     pending: boolean;
-    /** The sanction behind a Suspended or Banned status (D-093): a suspension in force, or a ban covering the home branch. */
+    /** The sanction behind a Suspended or Banned status: a suspension in force, or a ban covering the home branch. */
     sanction_level: 'suspension' | 'ban' | null;
     sanction_reason: string | null;
     sanction_until: string | null;
@@ -47,17 +47,17 @@ export interface MemberRow {
     last_visit: string | null;
     current_subscription_oid: string | null;
     frozen_until: string | null;
-    /** The assigned trainer (D-078), if any. */
+    /** The assigned trainer, if any. */
     trainer_oid: string | null;
     trainer_name: string | null;
-    /** For the BMI (D-089), set with a measurement. */
+    /** For the BMI, set with a measurement. */
     height_cm: number | null;
 }
 
 /**
  * One member's state, in SQL so lists filter, count and page in the database. "Relevant" subscription: the
  * current one, else the next upcoming, else the last. Status: Banned (a ban covering the home branch) → Suspended (a
- * suspension in force, D-093) → Pending → current (Frozen when a freeze covers today, else Active) → upcoming
+ * suspension in force) → Pending → current (Frozen when a freeze covers today, else Active) → upcoming
  * (Active) → Expired. No grace period. Dues: what the member's
  * invoices at the branches in context still lack (payments minus refunds).
  */
@@ -101,7 +101,7 @@ function memberState(today: string): Sql {
             limit 1
         ) rel on true
         left join lateral (
-            -- invoice_due() (migration 017): a refund never creates dues (D-067 a).
+            -- invoice_due() (migration 017): a refund never creates dues.
             select sum(invoice_due(i.total, x.paid_in, x.refunded)) as dues
             from invoice i cross join lateral (
                 select coalesce(sum(p.amount) filter (where p.kind = 'payment'), 0) as paid_in,

@@ -88,7 +88,7 @@ async function upload(h: Record<string, string>, kind: string, bytes = PNG, size
     return { status: 201, oid: file.oid };
 }
 
-describe('records (pure, D-088)', () => {
+describe('records (pure)', () => {
     it('Epley, records and series', () => {
         expect(epley(100, 1)).toBe(100);
         expect(epley(100, 5)).toBe(116.7);
@@ -117,7 +117,7 @@ describe('records (pure, D-088)', () => {
     });
 });
 
-describe('the exercise library (D-084, D-085)', () => {
+describe('the exercise library', () => {
     it('a branch reads HQ’s library and its own; edits only its own; HQ adds to every branch', async () => {
         const list = await exercises();
         expect(list.length).toBe(42);
@@ -213,7 +213,7 @@ describe('the exercise library (D-084, D-085)', () => {
     });
 });
 
-describe('routines (D-087)', () => {
+describe('routines', () => {
     it('templates: HQ’s and the branch’s; targets checked against the measure; a trainer’s carry their name', async () => {
         const list = await templates();
         expect(list.map(r => r.name)).toEqual(['5 km runner', 'Beginner full body', 'Fat loss circuit', 'Push, pull, legs', 'Upper and lower strength']);
@@ -336,7 +336,7 @@ describe('routines (D-087)', () => {
     });
 });
 
-describe('workouts and progress (D-088)', () => {
+describe('workouts and progress', () => {
     it('logs sets by measure, within 7 days; edits and deletes for 7 days after; records on read', async () => {
         const m = await member();
         const bench = await byName('Bench press');
@@ -413,7 +413,7 @@ describe('workouts and progress (D-088)', () => {
     });
 });
 
-describe('measurements (D-089)', () => {
+describe('measurements', () => {
     it('BMI from the height; photos linked to the member, hidden from other trainers; delete removes the photos', async () => {
         const m = await member();
         await request(t.app).post(`/api/v1/members/${m.oid}/measurements`).set(desk).send({ measured_on: '2026-11-19' }).expect(400);

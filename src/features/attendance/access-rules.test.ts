@@ -1,6 +1,6 @@
 import { type AccessClock, type AccessFacts, evaluateAccess } from './access-rules.ts';
 
-// The cases of the web mock's access-rules.spec.ts, without the "another branch" case (D-059: every branch).
+// The cases of the web mock's access-rules.spec.ts, without the "another branch" case (every branch).
 const BRANCH = {
     name: 'Gulshan',
     hours: [
@@ -21,7 +21,7 @@ function facts(over: Omit<Partial<AccessFacts>, 'member'> & { member?: Partial<A
     };
 }
 
-describe('access rules (D-059, D-061)', () => {
+describe('access rules', () => {
     const cases: [string, AccessFacts, AccessClock, string[], boolean[]][] = [
         ['allowed: active, no dues, open hours', facts(), NOW, [], []],
         [

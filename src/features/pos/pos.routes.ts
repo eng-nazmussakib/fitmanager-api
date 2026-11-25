@@ -10,7 +10,7 @@ import { cartSchema, oidParams, returnSchema, saleSchema, salesQuery } from './p
 import { getPosSale, listPosSales, type PosDeps, posProducts, quotePos, returnPos, sellPos } from './pos.service.ts';
 
 /**
- * The POS (phase 6, D-102), at a branch.
+ * The POS, at a branch.
  * - `read Sale`: `GET /v1/pos/products`, `GET /v1/pos/sales[?day=&q=]`, `GET /v1/pos/sales/:oid`.
  * - `create Sale` (the desk): `POST /v1/pos/quote`, `POST /v1/pos/sales`, `POST /v1/pos/sales/:oid/return` (within 3 days).
  * - `manage Sale` (a manager): line discounts, and returns after the 3 days.

@@ -35,7 +35,7 @@ async function soldMember(phone: string) {
     return { ...m, invoice: sale.body.data.invoice as { oid: string; number: string; due: number } };
 }
 
-describe('member portal (D-064)', () => {
+describe('member portal', () => {
     it('the desk gives access; the member signs in with the code, must change the password, then sees their portal', async () => {
         const m = await soldMember('01611111111');
         await request(t.app).post(`/api/v1/members/${m.oid}/portal-access`).set(deskDha).send({ password: 'Temp1234' }).expect(404);
@@ -105,7 +105,7 @@ describe('member portal (D-064)', () => {
                 .expect(200)
         ).body.data as { kind: string; status: string }[];
         expect(msgs.filter(m => m.kind === 'receipt')).toEqual([expect.objectContaining({ kind: 'receipt', status: 'logged' })]);
-        // The policies the new member still has to accept are messages too (D-108 a), written when the list is read.
+        // The policies the new member still has to accept are messages too, written when the list is read.
         expect(msgs.filter(m => m.kind === 'policy_to_accept').length).toBeGreaterThan(0);
 
         // A member cannot reach staff routes.

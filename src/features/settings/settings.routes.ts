@@ -11,12 +11,12 @@ import { AppError, ok, parse } from '#src/lib/http.ts';
 
 /**
  * HQ settings, one row (`org_settings`, migration 008):
- * - VAT (D-037, D-057): the rate, the BIN printed on invoices, and whether prices include VAT. Every quote and sale
+ * - VAT: the rate, the BIN printed on invoices, and whether prices include VAT. Every quote and sale
  *   reads them at that moment and the invoice keeps a copy, so a change here never rewrites an issued invoice.
- * - Freeze rule (D-063): the shortest and longest freeze, in days. Which plans may freeze is per plan template.
- * - Class booking (D-081): how far ahead a class opens, how many future bookings a member may hold, the free
+ * - Freeze rule: the shortest and longest freeze, in days. Which plans may freeze is per plan template.
+ * - Class booking: how far ahead a class opens, how many future bookings a member may hold, the free
  *   cancellation window, and the no-show rule (so many no-shows or late cancels in so many days block booking).
- * - Governance (D-091, D-095): the policy grace period, and the complaint response deadline.
+ * - Governance: the policy grace period, and the complaint response deadline.
  */
 export interface OrgRules {
     /** A fraction: 0.15 = 15 %. 0 = not VAT-registered. */
@@ -26,7 +26,7 @@ export interface OrgRules {
     vat_inclusive: boolean;
     freeze_min_days: number;
     freeze_max_days: number;
-    /** Freezes allowed on one plan (D-067 e); 0 = none. */
+    /** Freezes allowed on one plan; 0 = none. */
     freeze_max_count: number;
     booking_open_days: number;
     booking_max_active: number;
@@ -34,9 +34,9 @@ export interface OrgRules {
     noshow_limit: number;
     noshow_window_days: number;
     noshow_block_days: number;
-    /** Days after an "accept again" version (or joining) before an unaccepted policy blocks check-in (D-091). */
+    /** Days after an "accept again" version (or joining) before an unaccepted policy blocks check-in. */
     policy_grace_days: number;
-    /** Hours to the first reply before a complaint is overdue (D-095). */
+    /** Hours to the first reply before a complaint is overdue. */
     complaint_response_hours: number;
 }
 
@@ -130,7 +130,7 @@ export function settingsRouter(deps: AppDeps): Router {
 
     router.patch('/v1/hq/settings', ...hq, requireAbility('update', 'Settings'), async (req, res) => {
         const body = parse(updateSchema, req.body);
-        const ctx = branchContext(req); // the HQ row: settings are HQ data (D-043)
+        const ctx = branchContext(req); // the HQ row: settings are HQ data
         const row = await withBranchTx(db, ctx, async tx => {
             const before = await readOrgRules(tx);
             const min = body.freeze_min_days ?? before.freeze_min_days;

@@ -16,7 +16,7 @@ import bcrypt from 'bcryptjs';
  *
  * The cost is configurable (`PASSWORD_SCRYPT_N`, `_R`, `_P`). The DEFAULT is deliberately cheap: N=2^10, r=8, p=1
  * (1 MiB, about 1/80 of the work of N=2^14, r=8, p=5), because Cloudflare Workers on the Free plan allow only
- * 10 ms of CPU per request (D-026, Q-007). It is weaker than OWASP's minimum; raise it once the API runs where
+ * 10 ms of CPU per request. It is weaker than OWASP's minimum; raise it once the API runs where
  * sign-in can afford it, for example N=2^17, r=8, p=1 (OWASP's first scrypt setting, 128 MiB).
  */
 export interface ScryptParams {

@@ -81,7 +81,7 @@ import {
 } from './trainers.service.ts';
 
 /**
- * Scheduling (phase 3; D-078 to D-083), at the branch in `X-Branch-Id` unless marked HQ, portal or public.
+ * Scheduling, at the branch in `X-Branch-Id` unless marked HQ, portal or public.
  *
  * Trainers: `GET /v1/trainers`, `GET /v1/trainers/candidates`, `POST /v1/trainers` (`create Trainer`),
  * `GET|PATCH /v1/trainers/:oid` (`update Trainer`: a trainer their own), `PUT /v1/trainers/:oid/availability`,
@@ -108,7 +108,7 @@ export function schedulingRouter(deps: AppDeps): Router {
     const branch = [authenticate(deps), requireBranch('BRANCH')];
     const hq = [authenticate(deps), requireBranch('HQ')];
     const member = [authenticate(deps), requireAbility('read', 'Portal')];
-    /** A trainer at this branch is narrowed to their own profile, classes and PT sessions (D-083). */
+    /** A trainer at this branch is narrowed to their own profile, classes and PT sessions. */
     const caller = (req: Request): Caller => ({ userOid: currentUser(req).oid, selfOnly: req.auth?.assignment?.role === 'TRAINER' });
     const portal = async (req: Request) => memberContext(deps, currentUser(req));
 

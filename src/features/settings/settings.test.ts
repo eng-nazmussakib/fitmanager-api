@@ -20,7 +20,7 @@ afterAll(() => t.close());
 
 const settings = async () => (await request(t.app).get('/api/v1/hq/settings').set(owner).expect(200)).body.data as Record<string, unknown>;
 
-describe('HQ settings (D-037, D-057, D-063)', () => {
+describe('HQ settings', () => {
     it('starts at 15 %, no BIN, VAT added on top, freezes of 7 to 60 days', async () => {
         expect(await settings()).toMatchObject({
             vat_rate: 0.15,
@@ -53,12 +53,12 @@ describe('HQ settings (D-037, D-057, D-063)', () => {
         expect(await settings()).toMatchObject({ freeze_min_days: 7, freeze_max_days: 60 });
     });
 
-    it('how many freezes one plan may have (D-067 e): 0 to 12', async () => {
+    it('how many freezes one plan may have: 0 to 12', async () => {
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ freeze_max_count: 3 }).expect(200);
         expect(await settings()).toMatchObject({ freeze_max_count: 3, freeze_min_days: 7 });
         for (const freeze_max_count of [-1, 13, 1.5]) await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ freeze_max_count }).expect(400);
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ freeze_max_count: 2 }).expect(200);
-        // The booking rules (D-081): whole numbers in range.
+        // The booking rules: whole numbers in range.
         await request(t.app).patch('/api/v1/hq/settings').set(owner).send({ booking_cancel_hours: 4, noshow_limit: 5 }).expect(200);
         expect(await settings()).toMatchObject({ booking_cancel_hours: 4, noshow_limit: 5, booking_open_days: 7 });
         for (const body of [

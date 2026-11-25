@@ -43,7 +43,7 @@ export function authRouter(deps: AppDeps): Router {
     const { db, tokens, config } = deps;
     const router = Router();
     const requireUser = authenticate(deps);
-    // Routes a user with a temporary password may still call (D-054).
+    // Routes a user with a temporary password may still call.
     const requireUserBeforeChange = authenticate(deps, { beforePasswordChange: true });
 
     // Per IP + username: one attacker cannot lock others out, and spraying one password over many users is
@@ -59,7 +59,7 @@ export function authRouter(deps: AppDeps): Router {
         }
     });
     const refreshLimiter = createLimiter({ name: 'refresh', windowMs: 60_000, limit: 60, stores: deps.rateLimits });
-    // Guest sign-ins per IP (D-076): each one makes a session row, so a script cannot fill the table.
+    // Guest sign-ins per IP: each one makes a session row, so a script cannot fill the table.
     const guestLimiter = createLimiter({ name: 'guest', windowMs: 15 * 60_000, limit: 30, stores: deps.rateLimits });
     // Guessing the current password through change-password: 10 tries per user per 15 minutes.
     const passwordLimiter = createLimiter({
@@ -102,12 +102,12 @@ export function authRouter(deps: AppDeps): Router {
         ok(res, await issue(user, req), 'Signed in');
     });
 
-    /** The demo's guest accounts (D-076): empty when guest access is off. No passwords: see `POST` below. */
+    /** The demo's guest accounts: empty when guest access is off. No passwords: see `POST` below. */
     router.get('/v1/auth/guest', async (_req, res) => {
         ok(res, await guestAccounts(db, config));
     });
 
-    /** Signs in as one of the guest accounts without a password (D-076). */
+    /** Signs in as one of the guest accounts without a password. */
     router.post('/v1/auth/guest', guestLimiter, async (req, res) => {
         const { username } = parse(guestSchema, req.body);
         const user = isGuest(config, username) ? await users.findByUsernameForAuth(db, username) : undefined;
@@ -134,7 +134,7 @@ export function authRouter(deps: AppDeps): Router {
     router.post('/v1/auth/logout', requireUserBeforeChange, async (req, res) => {
         const { refresh_token } = parse(logoutSchema, req.body ?? {});
         const user = currentUser(req);
-        // A guest account is shared: "everywhere" would sign out every other visitor (D-076).
+        // A guest account is shared: "everywhere" would sign out every other visitor.
         if (!refresh_token && isGuest(config, user.username)) throw new AppError(403, GUEST_LOCKED);
         if (refresh_token) await refreshTokens.revokeFamily(db, refresh_token, user.oid);
         else await refreshTokens.revokeAll(db, user.oid);
@@ -142,12 +142,7 @@ export function authRouter(deps: AppDeps): Router {
     });
 
     /**
-     * The D-034 contract (the web app's `CurrentUser`): global `rules` plus one assignment per branch, each with
-     * its own rules. The UI combines them for the branch in the URL; the API does the same from `X-Branch-Id`.
-     * `member` stays null until the member table exists (phase 2); member sign-in comes with it.
-     */
-    /**
-     * Sets the user's own password: replaces a temporary one (D-054) or changes a known one. Ends every session,
+     * Sets the user's own password: replaces a temporary one or changes a known one. Ends every session,
      * this one included, and answers with the tokens of a new one, so the caller stays signed in.
      */
     router.post('/v1/auth/change-password', requireUserBeforeChange, passwordLimiter, async (req, res) => {
@@ -167,11 +162,11 @@ export function authRouter(deps: AppDeps): Router {
         ok(res, await issue(user, req), 'Password changed');
     });
 
-    /** The user's own live sessions (D-054). `current` marks the one making this request. */
+    /** The user's own live sessions. `current` marks the one making this request. */
     router.get('/v1/auth/sessions', requireUser, async (req, res) => {
         const user = currentUser(req);
         const sid = req.auth?.sid ?? null;
-        // A guest sees only its own session, not the other visitors' devices (D-076).
+        // A guest sees only its own session, not the other visitors' devices.
         const guest = isGuest(config, user.username);
         ok(
             res,
@@ -186,6 +181,11 @@ export function authRouter(deps: AppDeps): Router {
         ok(res, null, 'Session signed out');
     });
 
+    /**
+     * The `/auth/me` contract (the web app's `CurrentUser`): global `rules` plus one assignment per branch, each with
+     * its own rules. The UI combines them for the branch in the URL; the API does the same from `X-Branch-Id`.
+     * `member` is the signed-in member (once their temporary password is changed); null for staff.
+     */
     router.get('/v1/auth/me', requireUserBeforeChange, async (req, res) => {
         const u = currentUser(req);
         const member =

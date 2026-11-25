@@ -50,7 +50,7 @@ interface Post {
     category: { slug: string } | null;
 }
 
-describe('the blog (D-109)', () => {
+describe('the blog', () => {
     it('HQ writes posts; the public sees published ones only, a scheduled one from its date; branches and the desk cannot write', async () => {
         const cat = (await request(t.app).post('/api/v1/website/categories').set(hq).send({ name: 'Strength', slug: 'strength' }).expect(201)).body.data as {
             oid: string;
@@ -130,7 +130,7 @@ describe('the blog (D-109)', () => {
     });
 });
 
-describe('offers (D-109)', () => {
+describe('offers', () => {
     it('the public sees the offers running today, in order; an unknown promo code is refused', async () => {
         const offer = (body: Record<string, unknown>) => request(t.app).post('/api/v1/website/offers').set(hq).send(body);
         await offer({ title: 'Students', slug: 'students', summary: 'Ten percent off for students.', starts_on: '2026-11-01', sort_order: 2 }).expect(201);
@@ -157,7 +157,7 @@ describe('offers (D-109)', () => {
     });
 });
 
-describe('the gallery and branch pages (D-109)', () => {
+describe('the gallery and branch pages', () => {
     it('a branch manager adds and edits their own branch’s photos and text; HQ any branch’s; the public page shows them', async () => {
         const mine = await image(manager, GUL.oid);
         const photo = (await request(t.app).post('/api/v1/website/gallery').set(manager).send({ file_oid: mine, alt: 'The new rowing machines' }).expect(201))

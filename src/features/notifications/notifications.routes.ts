@@ -16,8 +16,8 @@ const readSchema = v.strictObject({
 });
 
 /**
- * The bell (phase 7b, D-108). The count is read when a page opens or the user moves to another one, so there is no
- * live channel (D-108: live updates deferred).
+ * The bell. The count is read when a page opens or the user moves to another one, so there is no
+ * live channel (live updates deferred).
  *
  * Staff (any console, `requireAnyBranch`): the inbox at the active branch or at HQ. There is no single permission:
  * each kind is shown to whoever holds its permission there (`INBOX_RULES`), so someone with none of them sees an

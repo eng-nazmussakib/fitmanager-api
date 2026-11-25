@@ -30,7 +30,7 @@ export default defineConfig(
             // Log through pino (structured, redacted), never console.
             'no-console': 'error',
             eqeqeq: ['error', 'smart'],
-            // Two hosting targets (D-027, D-050): Cloudflare Workers and a VM. Only the Workers entry may use
+            // Two hosting targets: Cloudflare Workers and a VM. Only the Workers entry may use
             // Cloudflare's runtime modules; everything else runs on plain Node.
             'no-restricted-imports': [
                 'error',

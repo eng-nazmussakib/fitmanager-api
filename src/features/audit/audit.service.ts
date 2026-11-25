@@ -3,7 +3,7 @@ import { sql } from '#src/db/sql.ts';
 import type { BranchContext } from '#src/db/tenancy.ts';
 
 /**
- * The audit log (phase 1): every write records who did what, to which row, with the row before and after. Call it
+ * The audit log: every write records who did what, to which row, with the row before and after. Call it
  * with the SAME transaction as the write (from `withBranchTx`), so either both are saved or neither is. The table
  * is append-only (migration 005): a trigger refuses UPDATE, DELETE and TRUNCATE, and RLS limits rows to the
  * transaction's branches.

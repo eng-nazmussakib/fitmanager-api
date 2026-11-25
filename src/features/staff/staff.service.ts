@@ -14,7 +14,7 @@ import { type Actor, fitsBranch, mayAssign, mayManage, type Placement } from './
 import { type StaffMember, staffRepo } from './staff.repo.ts';
 
 /**
- * Staff management (phase 1, D-054, D-055), shared by the HQ routes and the branch routes. Every change runs in
+ * Staff management, shared by the HQ routes and the branch routes. Every change runs in
  * one `withBranchTx` with its audit row (entity `staff`, the account's oid; never a password hash). The account
  * tables are not branch-scoped, so the scope comes from the policy (`staff.policy.ts`), checked against the row
  * read FOR UPDATE inside the same transaction.
@@ -180,7 +180,7 @@ export function staffService(deps: Pick<AppDeps, 'db' | 'cache' | 'config'>) {
             return after;
         },
 
-        /** A new temporary password (D-054): every session ends and the person must change it at sign-in. */
+        /** A new temporary password: every session ends and the person must change it at sign-in. */
         async resetPassword(s: StaffScope, oid: string, password: string): Promise<void> {
             const hash = await hashPassword(password, config.auth.passwordHash);
             const m = await withBranchTx(db, s.ctx, async tx => {

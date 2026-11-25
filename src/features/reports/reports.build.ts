@@ -1,7 +1,7 @@
 import { addDays, daysBetween } from '#src/lib/clock.ts';
 
 /**
- * The one shape every report answers (D-106), so the web renders and exports any of them with one component.
+ * The one shape every report answers, so the web renders and exports any of them with one component.
  * Reports are built from **components**: plain sums per branch (an amount, a count, a capacity). Every figure is a
  * function of components, so a ratio (fill rate, margin %, NPS) is worked out again from the summed components
  * for a total or for HQ, never averaged from the branches' ratios.
@@ -179,7 +179,7 @@ export interface PivotDef {
 
 /**
  * A breakdown table. At a branch: the dimension and every measure. At HQ (several branches): the dimension, the
- * primary measure per branch, its total, then the other measures in total (D-106). A totals row at the end.
+ * primary measure per branch, its total, then the other measures in total. A totals row at the end.
  */
 export function pivot(def: PivotDef, branches: ReportBranch[], rows: GroupRow[]): Table {
     const byDim = new Map<string, Map<string, Comp>>();

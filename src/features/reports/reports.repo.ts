@@ -6,7 +6,7 @@ import type { Range } from './reports.build.ts';
 import type { TrainerNumbers } from './reports.defs.ts';
 
 /**
- * The reports' SQL (D-106): computed when read, grouped by branch (and by Dhaka day or by a dimension), so the
+ * The reports' SQL: computed when read, grouped by branch (and by Dhaka day or by a dimension), so the
  * same query serves a branch and HQ. Numbers come back as float8/int; the service turns them into components.
  * Every query filters `branch_oid = any(branches)` itself, under the caller's RLS context.
  */
@@ -267,7 +267,7 @@ export function classByType(tx: Queryable, b: Branches, r: Range) {
         group by 1, 2`);
 }
 
-/* ---------- trainers (PT and classes, counts only: no commission, D-106) ---------- */
+/* ---------- trainers (PT and classes, counts only: no commission) ---------- */
 
 export function trainerNumbers(tx: Queryable, b: Branches, r: Range, trainerOid?: string) {
     const { from, to } = span(r);
@@ -310,7 +310,7 @@ export function ptDays(tx: Queryable, b: Branches, r: Range, trainerOid?: string
         ) x group by 1, 2`);
 }
 
-/* ---------- shop (margin at average cost, D-101) ---------- */
+/* ---------- shop (margin at average cost) ---------- */
 
 /**
  * Per product line sold: what it brought in without VAT, and what it cost (the `sold` moves at the average cost

@@ -11,7 +11,7 @@ import { type DayExercise, type RoutineDay, type RoutineRow, type TrainingMember
 import type { AssignInput, RoutineCreate, RoutineUpdate } from './training.schema.ts';
 
 /**
- * Routines (phase 4, D-087). A template is HQ's (read by every branch) or a branch's own, built by its trainers or
+ * Routines. A template is HQ's (read by every branch) or a branch's own, built by its trainers or
  * manager. A member's routine is a SNAPSHOT copy: made from a template (or built for them) when assigned, then
  * edited on its own. One runs at a time; assigning another ends it. Days rotate: the next day is the one after the
  * last workout logged on the routine, whatever the date. A member may start an HQ template themselves (portal).
@@ -42,7 +42,7 @@ export function routineWire(r: RoutineRow, branchOid: string, next: { day: numbe
     };
 }
 
-/** The day after the last one logged on this routine (D-087). */
+/** The day after the last one logged on this routine. */
 export async function nextDay(tx: Queryable, r: RoutineRow): Promise<{ day: number; last_on: string | null }> {
     const last = await trainingRepo.lastOnRoutine(tx, r.oid);
     if (last?.day_index === null || last?.day_index === undefined) return { day: 0, last_on: last?.performed_on ?? null };
@@ -56,7 +56,7 @@ async function callerTrainer(tx: Queryable, caller: Caller): Promise<{ oid: stri
 }
 
 /**
- * A member at this branch whose training the caller may change: a trainer only their own clients (D-086).
+ * A member at this branch whose training the caller may change: a trainer only their own clients.
  * Exported for workouts and measurements.
  */
 export async function trainingMember(tx: Queryable, ctx: BranchContext, caller: Caller | null, memberOid: string, forUpdate = false): Promise<TrainingMember> {
@@ -70,7 +70,7 @@ export async function trainingMember(tx: Queryable, ctx: BranchContext, caller: 
     return m;
 }
 
-/** Fills each exercise's name and measure from the library, and checks its targets (D-087). */
+/** Fills each exercise's name and measure from the library, and checks its targets. */
 async function resolveDays(tx: Queryable, ctx: BranchContext, days: RoutineCreate['days'], keep: readonly string[] = []): Promise<RoutineDay[]> {
     const oids = [...new Set(days.flatMap(d => d.exercises.map(e => e.exercise_oid)))];
     const found = new Map((await trainingRepo.exercisesByOid(tx, oids, ctx.branchOid)).map(e => [e.oid, e]));

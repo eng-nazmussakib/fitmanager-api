@@ -17,7 +17,7 @@ import { addDays, daysBetween, dhakaNow } from '#src/lib/clock.ts';
 import { AppError, ok, parse } from '#src/lib/http.ts';
 
 /**
- * Exports (D-107). The browser makes the Excel or PDF file (exceljs, jsPDF); the API hands it the rows, a page at a
+ * Exports. The browser makes the Excel or PDF file (exceljs, jsPDF); the API hands it the rows, a page at a
  * time, so no request loads everything (Workers' 10 ms CPU). Every export needs `export Report` (branch managers
  * and HQ: member data never leaves through the desk or a trainer) plus the right to read the data itself.
  *

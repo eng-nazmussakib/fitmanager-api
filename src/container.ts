@@ -11,7 +11,7 @@ import type { RateLimitStores } from './lib/rate-limit.ts';
 /**
  * Everything a request handler may need, created once at startup and passed to the routers explicitly. No module
  * opens its own connection at import time, so tests swap any piece: PGlite for PostgreSQL, a memory file store.
- * There are no outside services but R2 (D-075): nothing here sends mail, texts or talks to a third party.
+ * There are no outside services but R2: nothing here sends mail, texts or talks to a third party.
  */
 export interface AppDeps {
     config: Config;
@@ -20,7 +20,7 @@ export interface AppDeps {
     cache: Cache;
     /** "Now" for every business rule (tests set it). */
     clock: Clock;
-    /** Member photos and documents (D-058): R2 over its S3 API, local disk in development. */
+    /** Member photos and documents: R2 over its S3 API, local disk in development. */
     files: FileStore;
     tokens: TokenService;
     /** Where rate limits are counted: Durable Objects on Workers, memory when undefined (local, tests). */

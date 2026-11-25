@@ -1,5 +1,5 @@
 /**
- * Personal records and progress, computed from the logged sets when read (D-088): nothing is stored, so editing
+ * Personal records and progress, computed from the logged sets when read: nothing is stored, so editing
  * or deleting a workout changes them at once. The web mock has a copy (mock/domain/records.ts).
  */
 import type { Measure } from './training.schema.ts';

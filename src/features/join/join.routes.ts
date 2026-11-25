@@ -12,11 +12,11 @@ import { log } from '#src/lib/logger.ts';
 import { createLimiter } from '#src/lib/rate-limit.ts';
 
 /**
- * The public site's forms (phase 2 step 8; D-022, D-070 e). Both create a `Pending` member at the chosen
+ * The public site's forms. Both create a `Pending` member at the chosen
  * branch (`source = 'web'`), which the desk turns into a membership with the first sale:
  * - `POST /v1/public/enquiries` `{ branch, name, phone, message }` (the /join page: "call me back");
  * - `POST /v1/public/join-requests` `{ fullName, phone, email?, branch, plan?, period? }` (sign-up).
- * Spam, with no outside service (D-075): a honeypot field `website` that people never fill and 5 requests per IP
+ * Spam, with no outside service: a honeypot field `website` that people never fill and 5 requests per IP
  * per hour. A number that is already a member never says so on the enquiry form (no
  * lookup by phone for strangers); the sign-up form says "sign in instead", as the mock does.
  */
@@ -45,7 +45,7 @@ const joinSchema = v.strictObject({
     branch: slug,
     plan: v.optional(v.pipe(v.string(), v.maxLength(60))),
     period: v.optional(v.pipe(v.string(), v.maxLength(60))),
-    /** Not stored: portal access is given at the desk with a temporary password (D-064). */
+    /** Not stored: portal access is given at the desk with a temporary password. */
     password: v.optional(v.string()),
     website: honeypot
 });

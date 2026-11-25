@@ -24,7 +24,7 @@ import {
 import * as plans from './plans.service.ts';
 
 /**
- * Plans (phase 2 step 1; D-043, D-044, D-063).
+ * Plans.
  * - `GET /v1/plans`: what the desk sells at its branch (read Plan).
  * - `GET /v1/hq/plans`, `POST`, `PATCH /:oid`: every branch's plans; only HQ creates or changes them (manage Plan).
  * - `GET /v1/hq/plan-templates`, `POST`, `PATCH /:oid`: HQ templates (PlanTemplate).
@@ -49,7 +49,7 @@ export function plansRouter(deps: AppDeps): Router {
             const all = first ? await withBranchTx(db, systemContext(first, oids), tx => plansRepo.plans(tx, oids, true)) : [];
             return branches.map(b => ({
                 branch: { oid: b.oid, code: b.code, slug: b.slug, name: b.name, kind: b.kind },
-                // The public price list shows memberships; PT packages are sold at the desk (D-079).
+                // The public price list shows memberships; PT packages are sold at the desk.
                 plans: all.filter(p => p.branch_oid === b.oid && p.kind === 'membership'),
                 vat_rate: rules.vat_rate,
                 vat_inclusive: rules.vat_inclusive

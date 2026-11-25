@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of stock, purchase orders and transfers (phase 6, D-100, D-101). */
+/** Request schemas of stock, purchase orders and transfers. */
 const optionalText = (max: number) =>
     v.optional(
         v.pipe(

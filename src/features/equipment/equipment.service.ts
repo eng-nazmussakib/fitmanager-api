@@ -11,12 +11,12 @@ import { AppError } from '#src/lib/http.ts';
 import type { EquipmentCreate, EquipmentQuery, EquipmentUpdate, ServiceInput, TicketCreate, TicketUpdate } from './equipment.schema.ts';
 
 /**
- * The equipment register and maintenance tickets (phase 6, D-098). Each branch keeps its own register. Any staff
+ * The equipment register and maintenance tickets. Each branch keeps its own register. Any staff
  * member raises a ticket (`create Equipment`), with a photo and a priority, and may put the equipment out of order
  * while it is open; a manager runs it (`update Equipment`): open → in progress → fixed or cannot fix, with the
  * technician (free text) and the cost. Fixing the last ticket that put it out of order puts it back in use. A service
  * is recorded as a ticket of kind `service`, fixed on the day, and moves `last_serviced_on`; the next one is due
- * `service_every_days` later (worked out when read, D-075). Equipment is retired, never deleted.
+ * `service_every_days` later (worked out when read). Equipment is retired, never deleted.
  */
 export interface EquipmentDeps {
     db: Db;
@@ -335,7 +335,7 @@ export async function raiseTicket(deps: EquipmentDeps, ctx: BranchContext, now: 
     return ticketWire(deps, t);
 }
 
-/** An urgent ticket goes to the branch's inbox (D-108 b), once per ticket. */
+/** An urgent ticket goes to the branch's inbox, once per ticket. */
 async function urgentTicket(tx: Queryable, ctx: BranchContext, now: DhakaNow, oid: string, code: string, equipment: string, description: string, out: boolean) {
     await tellStaff(tx, ctx, {
         to_branch_oid: ctx.branchOid,

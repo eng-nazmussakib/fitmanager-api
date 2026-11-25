@@ -21,7 +21,7 @@ import {
 const allQuery = v.object({ all: v.optional(v.picklist(['0', '1'])) });
 
 /**
- * The catalogue and suppliers (phase 6, D-099).
+ * The catalogue and suppliers.
  * - Every console (`read Product` / `read Supplier`): `GET /v1/products[?all=1&q=&category=]`, `GET /v1/products/:oid`,
  *   `GET /v1/suppliers[?all=1]`.
  * - HQ (`create`/`update Product`, `Supplier`): `POST /v1/hq/products`, `PATCH /v1/hq/products/:oid`,

@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of the equipment register and maintenance tickets (phase 6, D-098). */
+/** Request schemas of the equipment register and maintenance tickets. */
 const text = (min: number, max: number, label = 'Required') =>
     v.pipe(v.string(), v.trim(), v.minLength(min, label), v.maxLength(max, `At most ${max} characters`));
 const optionalText = (max: number) =>

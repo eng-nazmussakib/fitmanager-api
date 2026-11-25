@@ -18,7 +18,7 @@ const time = (d: Date | string) => dhakaNow(new Date(d)).time;
 
 /**
  * A member's history, newest first (the mock's timeline): joined, plans, freezes, cancels, payments and refunds,
- * overrides, the last 10 visits, transfers (from the audit log), sanctions (D-093) and policy acceptances (D-090). A read model: it reads the
+ * overrides, the last 10 visits, transfers (from the audit log), sanctions and policy acceptances. A read model: it reads the
  * sales and attendance tables directly, at the branches in context.
  */
 export async function memberTimeline(tx: Queryable, member: { oid: string; code: string; joined_on: string }): Promise<TimelineEvent[]> {
@@ -141,7 +141,7 @@ export async function memberTimeline(tx: Queryable, member: { oid: string; code:
         const detail = `${a.after?.to?.name ?? ''}: ${a.after?.reason ?? ''}`;
         events.push({ oid: a.oid, kind: 'status', at: iso(a.created_at), title: titles[a.action] ?? a.action, detail, by: a.actor_name });
     }
-    // Sanctions (D-093), with where they were given; the case itself is on the discipline tab.
+    // Sanctions, with where they were given; the case itself is on the discipline tab.
     const sanctions = await tx.query<{
         oid: string;
         level: string;

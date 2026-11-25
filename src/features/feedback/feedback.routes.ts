@@ -34,7 +34,7 @@ import {
 import { answerNps, type FeedbackDeps, feedbackReport, myFeedback, rate } from './feedback.service.ts';
 
 /**
- * Complaints, NPS and ratings (phase 5; D-095, D-096).
+ * Complaints, NPS and ratings.
  * - Staff, at a branch or HQ: `GET /v1/complaints[?status=&overdue=1&escalated=1]`, `GET /v1/complaints/:oid` (`read Complaint`),
  *   `POST /v1/complaints` (`create Complaint`, the desk on someone's behalf), `POST /v1/complaints/:oid/updates`
  *   (`update Complaint`), `POST /v1/complaints/:oid/escalate` (`manage Complaint`, to HQ); `GET /v1/feedback[?days=]`

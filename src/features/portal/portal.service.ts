@@ -17,9 +17,9 @@ import { addDays, daysBetween, dhakaInstant, type DhakaNow } from '#src/lib/cloc
 import { AppError } from '#src/lib/http.ts';
 
 /**
- * The member portal v1 (phase 2 step 7; D-064, D-070 c): status, plan, dues, invoices and receipts, visits,
+ * The member portal: status, plan, dues, invoices and receipts, visits,
  * messages. A member's account is an `app_user` of kind 'member' whose username is the member code; the desk
- * sets a temporary password and the member must change it at the first sign-in (the staff flow, D-054).
+ * sets a temporary password and the member must change it at the first sign-in (the staff flow).
  * Every portal read runs in the member's HOME branch context, taken from the account, never from a header.
  */
 
@@ -88,12 +88,12 @@ function streak(days: Set<string>, today: string): number {
 
 type PortalDeps = Deps & { jwtSecret: string; apiPrefix: string; files: AppDeps['files'] };
 
-/** `GET /v1/me/summary`: the portal home (the mock's PortalSummary, without class bookings: D-070 c). */
+/** `GET /v1/me/summary`: the portal home (the mock's PortalSummary, without class bookings). */
 export async function summary(deps: PortalDeps, user: { oid: string; name: string; member_oid: string | null }, now: DhakaNow) {
     const { ctx, memberOid } = await memberContext(deps, user);
     return withBranchTx(deps.db, ctx, async tx => {
         const m = await memberAt(tx, ctx, memberOid, now.date);
-        // The membership only: a PT package is shown on the PT page (D-079).
+        // The membership only: a PT package is shown on the PT page.
         const subs = (await salesRepo.subscriptions(tx, memberOid)).filter(s => s.kind === 'membership');
         const current = subs.find(s => s.oid === m.current_subscription_oid) ?? null;
         const relevant =
@@ -152,7 +152,7 @@ export async function memberEverywhere(deps: Deps, user: { oid: string; name: st
     return { ctx: { ...ctx, branchOids: [ctx.branchOid, ...all.map(b => b.oid).filter(b => b !== ctx.branchOid)] }, memberOid };
 }
 
-/** `GET /v1/me/notifications`: the member's in-app messages (D-075), with their read state (D-108). */
+/** `GET /v1/me/notifications`: the member's in-app messages, with their read state. */
 export async function notifications(deps: PortalDeps, user: { oid: string; name: string; member_oid: string | null }, now: DhakaNow) {
     const { ctx, memberOid } = await memberEverywhere(deps, user);
     return withBranchTx(deps.db, ctx, async tx => {

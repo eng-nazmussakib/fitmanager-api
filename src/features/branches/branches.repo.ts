@@ -28,12 +28,12 @@ export interface BranchProfile extends BranchRef {
     opened_on: string | null;
     /** People allowed on the floor at once (live occupancy). */
     capacity: number;
-    /** Dues above this block check-in, ৳ (D-061; a visitor's home branch limit applies, D-059). */
+    /** Dues above this block check-in, ৳ (a visitor's home branch limit applies). */
     dues_limit: number;
     facilities: string[];
     hours: HoursBlock[];
     ladies_hours: HoursBlock[];
-    /** The branch page's text (phase 7c, D-109), written by its manager or HQ. */
+    /** The branch page's text, written by its manager or HQ. */
     description: string | null;
 }
 
@@ -66,7 +66,7 @@ export const branchesRepo = {
         return row;
     },
 
-    /** Every active selling branch: the context public reads use (D-043: plans are branch rows). */
+    /** Every active selling branch: the context public reads use (plans are branch rows). */
     activeBranchOids: async (db: Queryable) =>
         (await db.query<{ oid: string }>(sql`select oid from branch where kind = 'BRANCH' and status = 'Active' order by name`)).map(r => r.oid),
 

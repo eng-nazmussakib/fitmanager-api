@@ -18,7 +18,7 @@ interface Report {
     checks: { key: string; ok: boolean; count: number; rows: Record<string, unknown>[] }[];
 }
 
-describe('reconciliation (the phase 2 exit check)', () => {
+describe('reconciliation', () => {
     it('is clean after normal work, and catches money written without the app (overpaid, wrong closing, no audit)', async () => {
         const desk = atBranch((await signIn(t.app, 'desk.gulshan', 'Desk@123')).access_token, GUL.oid);
         const m = (

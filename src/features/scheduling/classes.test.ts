@@ -93,7 +93,7 @@ const detail = async (s: { oid: string }) =>
 const messages = (memberOid: string, kind: string) =>
     acrossBranches(t.ownerDb, tx => tx.query<{ subject: string }>(sql`select subject from notification where member_oid = ${memberOid} and kind = ${kind}`));
 
-describe('the timetable (D-080)', () => {
+describe('the timetable', () => {
     it('a week runs Saturday to Friday, made from the weekly rules when read, with the mock’s shape', async () => {
         const w = await week();
         expect(w).toMatchObject({ from: '2026-11-14', to: '2026-11-20', my_trainer_oid: null });
@@ -129,7 +129,7 @@ describe('the timetable (D-080)', () => {
     });
 });
 
-describe('booking rules (D-081)', () => {
+describe('booking rules', () => {
     it('books a member with a running plan; refuses twice, the wrong gender, no plan, and too far ahead', async () => {
         const m = await member();
         const s = await find('Spin', '2026-11-19T18:00:00+06:00');
@@ -190,7 +190,7 @@ describe('booking rules (D-081)', () => {
             .expect(409);
     });
 
-    it('no-shows when read, late cancels, and the pause after three (D-081)', async () => {
+    it('no-shows when read, late cancels, and the pause after three', async () => {
         const m = await member();
         await book(await find('Spin', '2026-11-19T18:00:00+06:00'), m).expect(201);
         await book(await find('Strength circuit', '2026-11-19T19:30:00+06:00'), m).expect(201);
@@ -208,7 +208,7 @@ describe('booking rules (D-081)', () => {
         expect((await book(hiit, m).expect(409)).body.message).toContain('booking is paused until 27 Nov 2026');
     });
 
-    it('a check-in before a booked class marks it attended (D-081)', async () => {
+    it('a check-in before a booked class marks it attended', async () => {
         const m = await member();
         const s = await find('Strength circuit', '2026-11-19T19:30:00+06:00');
         await book(s, m).expect(201);
@@ -240,7 +240,7 @@ describe('booking rules (D-081)', () => {
     });
 });
 
-describe('weekly rules and changes (D-080)', () => {
+describe('weekly rules and changes', () => {
     const typeOid = async (name: string) =>
         (await acrossBranches(t.ownerDb, tx => tx.query<{ oid: string }>(sql`select oid from class_type where name = ${name}`)))[0]!.oid;
 

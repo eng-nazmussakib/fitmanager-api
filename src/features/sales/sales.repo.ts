@@ -3,7 +3,7 @@ import { sql } from '#src/db/sql.ts';
 
 export type PaymentMethod = 'cash' | 'card' | 'bkash' | 'nagad' | 'bank';
 export const METHODS: readonly PaymentMethod[] = ['cash', 'card', 'bkash', 'nagad', 'bank'];
-/** bKash, Nagad, card and bank need the transaction reference (D-009). */
+/** bKash, Nagad, card and bank need the transaction reference. */
 export const NEEDS_REFERENCE: readonly PaymentMethod[] = ['card', 'bkash', 'nagad', 'bank'];
 
 export interface Freeze {
@@ -25,7 +25,7 @@ export interface SubscriptionRow {
     plan_name: string;
     months: number;
     freezable: boolean;
-    /** A membership, or a PT package (D-079). */
+    /** A membership, or a PT package. */
     kind: 'membership' | 'pt';
     /** PT sessions bought; null for a membership. */
     sessions: number | null;
@@ -39,7 +39,7 @@ export interface SubscriptionRow {
     created_at: Date;
     total: number;
     paid: number;
-    /** invoice_due(): a refund never creates dues (D-067 a). */
+    /** invoice_due(): a refund never creates dues. */
     due: number;
     /** PT sessions that used a credit of this package (0 for a membership). */
     sessions_used: number;
@@ -48,7 +48,7 @@ export interface SubscriptionRow {
 export interface PaymentRow {
     oid: string;
     invoice_oid: string;
-    /** Null on a walk-in POS sale (D-102). */
+    /** Null on a walk-in POS sale. */
     member_oid: string | null;
     kind: 'payment' | 'refund';
     amount: number;
@@ -67,7 +67,7 @@ export interface InvoiceRow {
     branch_code: string;
     branch_slug: string;
     branch_name: string;
-    /** Null on a walk-in POS sale (D-102): `member_code` is 'WALK-IN'. */
+    /** Null on a walk-in POS sale: `member_code` is 'WALK-IN'. */
     member_oid: string | null;
     subscription_oid: string | null;
     number: string;
@@ -75,7 +75,7 @@ export interface InvoiceRow {
     member_code: string;
     member_name: string;
     member_phone: string | null;
-    /** POS lines carry the product, quantity, unit price, VAT rate, discount and total too (D-102). */
+    /** POS lines carry the product, quantity, unit price, VAT rate, discount and total too. */
     lines: ({ label: string; amount: number } & Record<string, unknown>)[];
     subtotal: number;
     discount: number;

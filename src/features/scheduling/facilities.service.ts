@@ -11,9 +11,9 @@ import type { RentInput } from './scheduling.schema.ts';
 import type { SchedulingDeps } from './trainers.service.ts';
 
 /**
- * Facilities (phase 3, D-082): lockers and their rentals, and maintenance blocks on a room or a locker. A rental is
+ * Facilities: lockers and their rentals, and maintenance blocks on a room or a locker. A rental is
  * charged on its own invoice (kind `locker`), through the sales service. It ends on its end date (worked out when
- * read, D-075) or early, when the desk takes the key back. A blocked locker cannot be rented; a blocked room takes
+ * read) or early, when the desk takes the key back. A blocked locker cannot be rented; a blocked room takes
  * no new classes or PT, and the classes already in it show as blocked for the manager to move or cancel.
  */
 interface LockerRow {

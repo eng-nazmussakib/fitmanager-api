@@ -60,7 +60,7 @@ async function hqCreate(username: string, assignments: { branch_oid: string; rol
     return res.body.data as Staff;
 }
 
-describe('HQ staff (D-055)', () => {
+describe('HQ staff', () => {
     it('lists every staff account with its assignments; the owner may hand out every role', async () => {
         const { rows, assignable_roles } = await list(owner);
         expect(rows.map(r => r.username)).toEqual(expect.arrayContaining(['owner', 'manager.gulshan', 'desk.uttara']));
@@ -74,7 +74,7 @@ describe('HQ staff (D-055)', () => {
         expect(assignable_roles.hq).toEqual(['OWNER', 'HQ_ADMIN']);
         const { branches } = (await request(t.app).get('/api/v1/hq/staff').set(owner).expect(200)).body.data as { branches: { code: string }[] };
         expect(branches.map(b => b.code)).toEqual(['HQ', 'DHA', 'GUL', 'UTT']);
-        // trainer.gulshan and the four trainer accounts of the phase 3 seed (005_scheduling.sql), which cannot sign in yet.
+        // trainer.gulshan and the four trainer accounts of the scheduling seed (005_scheduling.sql), which cannot sign in until given a temporary password.
         expect((await list(owner, `?branch_oid=${GUL.oid}&role=TRAINER`)).rows.map(r => r.username).sort()).toEqual([
             'nabila.islam',
             'shakib.hasan',
@@ -146,7 +146,7 @@ describe('HQ staff (D-055)', () => {
         await post({ email: 'not-an-email' }).expect(400);
     });
 
-    it('an HQ admin manages branch staff only: never OWNER or HQ_ADMIN accounts (D-055)', async () => {
+    it('an HQ admin manages branch staff only: never OWNER or HQ_ADMIN accounts', async () => {
         await hqCreate('hq.admin', [{ branch_oid: HQ.oid, role: 'HQ_ADMIN' }]);
         const first = await signIn(t.app, 'hq.admin', 'Temp1234');
         const changed = await request(t.app)
@@ -222,7 +222,7 @@ describe('HQ staff (D-055)', () => {
     });
 });
 
-describe('branch staff (D-055)', () => {
+describe('branch staff', () => {
     it('a manager sees only their branch, and may hand out front desk and trainer roles', async () => {
         const { rows, assignable_roles } = await list(managerGul);
         expect(rows.map(r => r.username).sort()).toEqual([

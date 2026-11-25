@@ -2,13 +2,13 @@
  * Access rules engine: may a member come in right now? A pure function, ported from the web mock
  * (fitmanager-web src/app/mock/domain/access-rules.ts) with its table-driven cases in access-rules.test.ts.
  *
- * Changed from the mock by D-059: a member trains at EVERY branch, so there is no "own branch only" rule; the
+ * Unlike the mock, a member trains at EVERY branch, so there is no "own branch only" rule; the
  * dues limit is the member's HOME branch's, and the opening hours are the branch being entered.
  *
  * Every rule that fails is reported (not just the first), each with the reason the desk reads out and whether a
  * manager may override it. Order = the order shown on screen.
  *
- * Phase 5 (D-091, D-093): a suspension in force blocks every branch and a ban blocks the branches it covers; neither
+ * A suspension in force blocks every branch and a ban blocks the branches it covers; neither
  * is overridden at the desk (it is lifted, or overturned on appeal). A required policy not accepted blocks once its
  * grace period is over (`blocks_on`), and a manager may override that like any other rule.
  */
@@ -31,7 +31,7 @@ export interface AccessFacts {
     branch: { name: string; hours: { days: number[]; open: string; close: string }[] };
     /** An open visit (not checked out), anywhere: its branch and time. */
     open_check_in: { branch_name: string; time: string } | null;
-    /** Suspensions not overturned, anywhere, and the bans covering the branch entered (D-093). `branch_name`: where given. */
+    /** Suspensions not overturned, anywhere, and the bans covering the branch entered. `branch_name`: where given. */
     sanctions?: {
         level: 'suspension' | 'ban';
         starts_on: string;
@@ -40,7 +40,7 @@ export interface AccessFacts {
         branch_name: string;
         reason: string;
     }[];
-    /** Required policies the member has not accepted, and the first day each one blocks (D-091). */
+    /** Required policies the member has not accepted, and the first day each one blocks. */
     policies?: { title: string; blocks_on: string }[];
 }
 

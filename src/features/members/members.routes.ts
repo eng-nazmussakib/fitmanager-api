@@ -24,9 +24,9 @@ import {
 import { memberTimeline } from './members.timeline.ts';
 
 /**
- * Members of the branch in `X-Branch-Id` (phase 2 step 3; D-022, D-068). The desk adds and edits (`create`,
+ * Members of the branch in `X-Branch-Id`. The desk adds and edits (`create`,
  * `update Member`); transfers and anonymising need a manager (`manage Member`). Suspensions and bans are
- * sanctions on a discipline case (phase 5, discipline.routes.ts).
+ * sanctions on a discipline case (discipline.routes.ts).
  * - `GET /v1/members` (search, status, plan, flag, paging, sort) → `{ rows, count, page, size, counts }`
  * - `GET /v1/members/lookup?code=` (scanner, this branch only), `GET /v1/members/:oid`
  * - `POST /v1/members`, `PATCH /v1/members/:oid`
@@ -40,7 +40,7 @@ export function membersRouter(deps: AppDeps): Router {
     const memberDeps: MemberDeps = { db: deps.db, files: deps.files, jwtSecret: deps.config.auth.jwtSecret, apiPrefix: deps.config.apiPrefix };
     const branch = [authenticate(deps), requireBranch('BRANCH')];
     const today = () => dhakaNow(deps.clock()).date;
-    // The guest member's portal account must keep working for the next visitor (D-076).
+    // The guest member's portal account must keep working for the next visitor.
     const guestMember = protectGuest(deps, 'member');
 
     router.get('/v1/members', ...branch, requireAbility('read', 'Member'), async (req, res) => {

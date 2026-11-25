@@ -8,7 +8,7 @@ import { AppError } from '#src/lib/http.ts';
 import type { ClauseInput, PolicyCreate, PolicyUpdate, VersionCreate } from './policies.schema.ts';
 
 /**
- * Policies (phase 5, D-090, D-091). HQ master data on the HQ row (no RLS, like class types): every branch reads them,
+ * Policies. HQ master data on the HQ row (no RLS, like class types): every branch reads them,
  * only HQ writes them. A version is published the day it is made and never edited; "accept again" versions must be
  * accepted by every member, "wording only" ones need no new acceptance. A member's acceptance names the version, in
  * the portal (a tick) or signed on paper at the desk. Access rule 6 (`member_access_facts`, migration 020) blocks a
@@ -220,7 +220,7 @@ export async function publishVersion(deps: PolicyDeps, ctx: BranchContext, oid: 
     });
 }
 
-/** Every clause of the current versions, for citing on an incident (D-092). */
+/** Every clause of the current versions, for citing on an incident. */
 export async function currentClauses(deps: PolicyDeps, ctx: BranchContext) {
     return withBranchTx(deps.db, ctx, tx =>
         tx.query<{ oid: string; policy_title: string; version: number; number: string; heading: string; label: string }>(sql`
@@ -282,7 +282,7 @@ export interface MemberPolicy {
     method: 'portal' | 'paper' | null;
     recorded_by_name: string | null;
     state: PolicyState;
-    /** The first day check-in is blocked without it (D-091), while it is due or overdue. */
+    /** The first day check-in is blocked without it, while it is due or overdue. */
     blocks_on: string | null;
 }
 

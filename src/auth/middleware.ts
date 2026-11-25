@@ -14,13 +14,13 @@ export interface AuthContext {
     branchOid: string | null;
     /** The user's assignment at that branch; null without the header or when the user does not work there. */
     assignment: StaffAssignment | null;
-    /** Global rules + the active assignment's rules (D-034). */
+    /** Global rules + the active assignment's rules. */
     ability: AppAbility;
     /** The session (refresh-token family) this access token belongs to; null for older tokens. */
     sid: string | null;
 }
 
-/** The message (and `errors[0].path`) of the 403 that asks for a new password first (D-054). */
+/** The message (and `errors[0].path`) of the 403 that asks for a new password first. */
 export const PASSWORD_CHANGE_REQUIRED = 'PASSWORD_CHANGE_REQUIRED';
 
 /** The header the web app sets from the URL (`/console/:branch`, or the HQ row for `/hq`). */
@@ -43,7 +43,7 @@ const USER_CACHE_SECONDS = 30;
  */
 export function authenticate(
     { db, cache, tokens, clock = systemClock }: Pick<AppDeps, 'db' | 'cache' | 'tokens'> & Partial<Pick<AppDeps, 'clock'>>,
-    opts: { /** The few routes a user with a temporary password may call (D-054): /auth/me, change-password, logout. */ beforePasswordChange?: boolean } = {}
+    opts: { /** The few routes a user with a temporary password may call: /auth/me, change-password, logout. */ beforePasswordChange?: boolean } = {}
 ): RequestHandler {
     return async (req, _res, next) => {
         const [scheme, token] = (req.get('authorization') ?? '').split(' ');

@@ -5,7 +5,7 @@ import { addDays, dhakaInstant, dhakaNow, shortDate } from '#src/lib/clock.ts';
 import { log } from '#src/lib/logger.ts';
 
 /**
- * Messages to members (phase 2 step 9; D-060, D-070 f, D-075). There is no email or SMS provider, ever (D-075):
+ * Messages to members. There is no email or SMS provider, ever:
  * every message is an in-app message, written to the `notification` table and shown in the member portal and on
  * the member's profile, where staff can also pass it on by hand (copy it, or open the phone's SMS app with it).
  * `channel` records how the member could be reached by hand (`email`, `sms`) or `log` when they gave neither;
@@ -20,14 +20,14 @@ export type NotificationKind =
     | 'waitlist_promoted'
     | 'pt_booked'
     | 'pt_cancelled'
-    // Phase 7b (D-108 a).
+    // The bell.
     | 'complaint_reply'
     | 'sanction'
     | 'appeal_decided'
     | 'policy_to_accept'
     | 'shop_receipt';
 
-/** Read messages older than this are no longer listed (D-108 d); nothing deletes them. */
+/** Read messages older than this are no longer listed; nothing deletes them. */
 export const RETENTION_DAYS = 180;
 
 export interface MemberContact {
@@ -70,7 +70,7 @@ export async function notify(tx: Queryable, n: NotificationInput): Promise<boole
         returning oid`);
     if (!rows.length) return false;
     // Never the body or the address in the log: the kind and the member code are enough to find the row.
-    log().info({ notification: rows[0]?.oid, kind: n.kind, member: n.member.code, channel, status }, 'In-app message recorded (D-075)');
+    log().info({ notification: rows[0]?.oid, kind: n.kind, member: n.member.code, channel, status }, 'In-app message recorded');
     return true;
 }
 
@@ -85,16 +85,16 @@ export interface NotificationRow {
     read_at: Date | null;
 }
 
-/** Expiry reminders: 7 days and 1 day before a plan ends (D-070 f). */
+/** Expiry reminders: 7 days and 1 day before a plan ends. */
 export const REMINDER_DAYS = [
     { days: 7, kind: 'expiry_7d' },
     { days: 1, kind: 'expiry_1d' }
 ] as const;
 
 /**
- * Writes the member's expiry reminders that have fallen due by `now` and are not written yet (D-075: no nightly
+ * Writes the member's expiry reminders that have fallen due by `now` and are not written yet (no nightly
  * job; this runs when the member's messages are read, so the list is the same as if a job had run every night).
- * A reminder is for a plan that is not cancelled (a ban covering the home branch cancels it, D-093), whose member is
+ * A reminder is for a plan that is not cancelled (a ban covering the home branch cancels it), whose member is
  * not anonymised, and that was not renewed by then (no later plan that starts after it). A suspension does not stop
  * the plan, so it does not stop the reminders. Each is dated its due day at 00:05 Dhaka. Returns how many were
  * written.
@@ -138,7 +138,7 @@ export async function writeDueReminders(tx: Queryable, memberOid: string, now: D
 }
 
 /**
- * A message for each required policy the member has still to accept (D-108 a), once per version that needs it.
+ * A message for each required policy the member has still to accept, once per version that needs it.
  * Written when the member's messages are read, like the reminders: publishing a policy writes nothing for hundreds of
  * members at once.
  */

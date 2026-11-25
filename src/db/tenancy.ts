@@ -7,7 +7,7 @@ import type { Db, Queryable } from './db.ts';
 import { sql } from './sql.ts';
 
 /**
- * Who a database transaction acts for, and which branches it may touch (D-004, D-023, D-034). Passed explicitly
+ * Who a database transaction acts for, and which branches it may touch. Passed explicitly
  * to services: never read from the request body.
  *
  * - On a BRANCH: that branch only.
@@ -47,7 +47,7 @@ export function systemContext(branchOid: string, branchOids: readonly string[] =
 
 /**
  * Runs `fn` in one transaction whose RLS context is `ctx` (`set_config(..., true)`: transaction-local, so it is
- * safe behind Hyperdrive and Neon's transaction pooler, D-021). Every query on a branch-scoped table goes
+ * safe behind Hyperdrive and Neon's transaction pooler). Every query on a branch-scoped table goes
  * through here; each statement still filters or inserts `branch_oid` itself (the app layer), and RLS catches a
  * statement that forgets (the database layer). An empty context throws instead of running unscoped.
  */

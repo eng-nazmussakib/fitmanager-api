@@ -13,7 +13,7 @@ import { AppError } from '#src/lib/http.ts';
 import { type Freeze, type InvoiceRow, METHODS, NEEDS_REFERENCE, type PaymentMethod, type PaymentRow, salesRepo, type SubscriptionRow } from './sales.repo.ts';
 
 /**
- * Selling and money (phase 2 steps 4 and 5; D-009, D-037, D-057, D-061, D-063, D-067). Prices are computed here
+ * Selling and money. Prices are computed here
  * only (pricing.ts), never trusted from the browser. Money rows are append-only; an invoice's paid amount is its
  * payments minus its refunds. Every action is audited at the branch, in the same transaction.
  */
@@ -32,11 +32,11 @@ export interface PaymentInput {
     reference?: string | null | undefined;
 }
 
-/** Discounts above 20 % of the plan price need a branch manager (D-061). */
+/** Discounts above 20 % of the plan price need a branch manager. */
 export const MANAGER_DISCOUNT_PERCENT = 20;
 /** A plan may start at most this many days in the past (the mock's rule). */
 export const MAX_BACKDATE_DAYS = 7;
-/** A full refund is allowed within this many days of the sale, if the member has not trained since (D-067 a). */
+/** A full refund is allowed within this many days of the sale, if the member has not trained since. */
 export const REFUND_WINDOW_DAYS = 3;
 /** Admission is charged again when the last plan ended more than this many days before the new one starts. */
 export const ADMISSION_GAP_DAYS = 30;
@@ -182,7 +182,7 @@ async function price(tx: Queryable, ctx: BranchContext, now: DhakaNow, input: Sa
         vat_inclusive: rules.vat_inclusive,
         promos: await pricingPromos(tx)
     });
-    // A manual discount above 20 % of the plan price needs a manager; HQ's promo codes do not (D-061).
+    // A manual discount above 20 % of the plan price needs a manager; HQ's promo codes do not.
     if (input.discount.kind !== 'promo' && q.discount_percent > MANAGER_DISCOUNT_PERCENT && !canDiscount) {
         throw new AppError(403, `Discounts above ${MANAGER_DISCOUNT_PERCENT}% need a branch manager.`);
     }
@@ -201,7 +201,7 @@ export type InvoiceDraft = Pick<Quote, 'subtotal' | 'discount' | 'discount_label
 
 /**
  * Numbers and writes an invoice at the context's branch (INV-GUL-2026-00001). `member.oid` is null for a walk-in POS
- * sale (D-102). For other features in the same transaction (POS); the caller audits it.
+ * sale. For other features in the same transaction (POS); the caller audits it.
  */
 export async function newInvoice(
     tx: Queryable,
@@ -275,7 +275,7 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
         if (q.promo_error) throw new AppError(400, q.promo_error, [{ path: 'discount.code', message: q.promo_error }]);
         checkPayment(payment, q.total);
         const end = endDate(start, plan.months);
-        // Memberships may not overlap; PT packages run next to them (D-079), and only with a membership.
+        // Memberships may not overlap; PT packages run next to them, and only with a membership.
         const memberships = subs.filter(s => s.kind === 'membership' && !s.cancelled_at);
         if (plan.kind === 'pt' && !memberships.some(s => s.start_date <= s.end_date && s.end_date >= start))
             throw new AppError(409, 'A PT package goes with a membership. Sell the membership first.');
@@ -341,7 +341,7 @@ export async function sell(db: Db, ctx: BranchContext, now: DhakaNow, input: Sal
 }
 
 /**
- * For other features (locker rentals, D-082): charge a home-branch member for one item on its own invoice of `kind`,
+ * For other features (locker rentals): charge a home-branch member for one item on its own invoice of `kind`,
  * VAT applied as for plans, and take a first payment (0 = all of it left as dues). Runs in the caller's transaction.
  */
 export async function chargeItem(
@@ -455,7 +455,7 @@ export async function freezeSubscription(
     });
 }
 
-/** Ends a plan early (D-067 c): from today on it gives no access; no money moves (a refund is separate). */
+/** Ends a plan early: from today on it gives no access; no money moves (a refund is separate). */
 export async function cancelSubscription(db: Db, ctx: BranchContext, now: DhakaNow, oid: string, reason: string) {
     const actor = actorOf(ctx);
     return withBranchTx(db, ctx, async tx => {
@@ -478,7 +478,7 @@ export async function cancelSubscription(db: Db, ctx: BranchContext, now: DhakaN
 }
 
 /**
- * Upgrade (D-067 b): to a plan of the same or a higher price at this branch. The new plan starts today, the old
+ * Upgrade: to a plan of the same or a higher price at this branch. The new plan starts today, the old
  * one ends yesterday, and the unused days are credited pro rata on what was actually paid for the old plan, as
  * a line on the new invoice. No downgrades.
  */
@@ -619,7 +619,7 @@ export async function payInvoice(db: Db, ctx: BranchContext, now: DhakaNow, invo
 }
 
 /**
- * Refund (D-067 a). A FULL refund (everything paid on the invoice) within 3 days of the sale, with no check-in
+ * Refund. A FULL refund (everything paid on the invoice) within 3 days of the sale, with no check-in
  * since, is the published policy: the desk may do it, and it ends the plan. Any other refund needs a manager
  * (`manage Payment`) and never exceeds what was paid less earlier refunds.
  */
@@ -729,7 +729,7 @@ export async function recentPayments(db: Db, ctx: BranchContext) {
 }
 
 /**
- * Payments and refunds at the branch in a range of Dhaka days, oldest first, a page at a time (exports, D-107).
+ * Payments and refunds at the branch in a range of Dhaka days, oldest first, a page at a time (exports).
  * `after` is the last row's `[received_at, oid]`; the first page also counts the rows.
  */
 export async function paymentsPage(db: Db, ctx: BranchContext, range: { from: string; to: string }, after: [string, string] | null, limit: number) {

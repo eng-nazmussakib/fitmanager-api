@@ -53,7 +53,7 @@ describe('platform', () => {
         expect(res.body.data.unknown).toEqual([]);
     });
 
-    it('sign-in deletes the user’s long-expired refresh tokens (no cleanup job, D-075)', async () => {
+    it('sign-in deletes the user’s long-expired refresh tokens (no cleanup job)', async () => {
         await signIn(t.app);
         await t.deps.db.query(sql`update refresh_token set expires_at = now() - interval '2 days'`);
         await signIn(t.app);

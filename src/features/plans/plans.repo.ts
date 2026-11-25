@@ -3,7 +3,7 @@ import { type Sql, sql } from '#src/db/sql.ts';
 
 import type { PlanUpdate, PromoCreate, TemplateCreate, TemplateUpdate } from './plans.schema.ts';
 
-/** A plan a branch sells, with what it takes from its template (D-044, migration 009). */
+/** A plan a branch sells, with what it takes from its template (migration 009). */
 export interface Plan {
     oid: string;
     branch_oid: string;
@@ -21,9 +21,9 @@ export interface Plan {
     persons: number;
     features: string[];
     featured: boolean;
-    /** From the template (D-063). */
+    /** From the template. */
     freezable: boolean;
-    /** A membership, or a package of PT sessions (D-079). */
+    /** A membership, or a package of PT sessions. */
     kind: 'membership' | 'pt';
     /** PT sessions in the package; null for a membership. */
     sessions: number | null;

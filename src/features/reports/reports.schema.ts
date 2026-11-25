@@ -4,7 +4,7 @@ import { REPORT_KEYS } from './reports.defs.ts';
 
 const day = v.pipe(v.string(), v.isoDate('A date as YYYY-MM-DD'));
 
-/** `?from&to&compare` (Dhaka days, inclusive; at most 366 days, D-106); HQ adds `branch_oid`. */
+/** `?from&to&compare` (Dhaka days, inclusive; at most 366 days); HQ adds `branch_oid`. */
 export const reportQuery = v.object({
     from: v.optional(day),
     to: v.optional(day),

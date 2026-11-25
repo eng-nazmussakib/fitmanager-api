@@ -38,7 +38,7 @@ describe('pg driver', () => {
         expect(await migrate(runnerDb(db))).toEqual([]);
     });
 
-    it('reset reruns every migration and seed over an existing schema (D-051: files drop their tables first)', async () => {
+    it('reset reruns every migration and seed over an existing schema (files drop their tables first)', async () => {
         await seed(runnerDb(db));
         await db.query(sql`insert into app_role (code, name) values ('R1', 'gone after reset')`);
         const again = await reset(runnerDb(db), { withSeeds: true });

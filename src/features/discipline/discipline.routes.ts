@@ -36,7 +36,7 @@ import {
 import { giverRole } from './ladder.ts';
 
 /**
- * Discipline (phase 5; D-092 to D-094), at a branch or HQ (`X-Branch-Id`):
+ * Discipline, at a branch or HQ (`X-Branch-Id`):
  * - `GET /v1/incidents` (`read Incident`; `?status=open|closed&kind=member|staff&appeal=open&q=`), `GET /v1/incidents/:oid`,
  *   `GET /v1/incidents/staff[?branch_oid=]` (who a staff case may be about), `POST /v1/incidents` (`create Incident`),
  *   `PATCH /v1/incidents/:oid` (`manage Incident`).

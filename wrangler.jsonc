@@ -1,8 +1,8 @@
-// The API as a Cloudflare Worker: the hosted demo (D-024, Free plan only: D-026, D-075).
+// The API as a Cloudflare Worker: the hosted demo (Free plan only).
 //   npm run worker:dev        local workerd on http://localhost:8787 (needs `npm run worker:db` in another shell)
 //   npm run worker:check      bundle without deploying: prints the upload size
 // Plain vars only here; secrets (JWT_SECRET, S3_* keys for R2) go in `.dev.vars` locally and `wrangler secret put`
-// in Cloudflare. No cron triggers: the demo has no scheduled jobs (D-075).
+// in Cloudflare. No cron triggers: the demo has no scheduled jobs.
 {
     "$schema": "node_modules/wrangler/config-schema.json",
     "name": "fitmanager-api",
@@ -16,21 +16,21 @@
         "NODE_ENV": "production",
         "APP_ENV": "demo",
         "LOG_LEVEL": "info",
-        // Guest access (D-076): the seeded accounts the /demo picker signs in as without a password, one per role.
-        // Empty: off. Their uploads go under guest/ in R2 and expire after 7 days (D-077).
+        // Guest access: the seeded accounts the /demo picker signs in as without a password, one per role.
+        // Empty: off. Their uploads go under guest/ in R2 and expire after 7 days.
         "GUEST_ACCOUNTS": "owner,admin.hq,manager.gulshan,desk.gulshan,trainer.gulshan,MEM-GUL-000001"
     },
     "hyperdrive": [
         {
             "binding": "HYPERDRIVE",
-            // `fitmanager-db`: Neon fitmanager-db (Singapore, free plan), the demo database (D-075), role fitmanager_app,
+            // `fitmanager-db`: Neon fitmanager-db (Singapore, free plan), the demo database, role fitmanager_app,
             // direct host (fitmanager-infra/cloudflare/hyperdrive.md).
             "id": "8c63f2cdffa14c69ba4910d8ee3c8ae1",
             // `wrangler dev`: PGlite served over TCP by `npm run worker:db` (the local PostgreSQL uses peer auth on a socket).
             "localConnectionString": "postgres://postgres:postgres@127.0.0.1:5433/postgres?sslmode=disable"
         }
     ],
-    // Rate limits (src/worker/rate-limit-counter.ts): SQLite-backed Durable Objects, included in the Free plan (D-026).
+    // Rate limits (src/worker/rate-limit-counter.ts): SQLite-backed Durable Objects, included in the Free plan.
     "durable_objects": { "bindings": [{ "name": "RATE_LIMITER", "class_name": "RateLimitCounter" }] },
     "migrations": [{ "tag": "v1", "new_sqlite_classes": ["RateLimitCounter"] }]
 }

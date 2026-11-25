@@ -67,7 +67,7 @@ export const createSchema = v.pipe(
     v.strictObject({
         ...fields,
         gender: v.optional(fields.gender, 'Male'),
-        /** The member signed the current policies on paper at the desk (D-090): recorded as accepted. */
+        /** The member signed the current policies on paper at the desk: recorded as accepted. */
         policies_signed: v.optional(v.boolean())
     }),
     v.check(b => b.health_declared, 'The member must sign the health declaration')

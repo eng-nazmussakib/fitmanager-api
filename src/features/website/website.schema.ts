@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 
-/** Request schemas of the website content (phase 7c, D-109). */
+/** Request schemas of the website content. */
 const uuid = (message: string) => v.pipe(v.string(), v.uuid(message));
 const text = (min: number, max: number) =>
     v.pipe(v.string(), v.trim(), v.minLength(min, min > 1 ? `At least ${min} characters` : 'Required'), v.maxLength(max, `At most ${max} characters`));

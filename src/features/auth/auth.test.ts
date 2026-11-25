@@ -39,7 +39,7 @@ describe('sign-in', () => {
 });
 
 describe('session', () => {
-    it('/me returns the D-034 shape: global rules plus one assignment per branch, each with its rules', async () => {
+    it('/me returns global rules plus one assignment per branch, each with its rules', async () => {
         const { access_token } = await signIn(t.app, 'desk.uttara', 'Desk@123');
         const res = await request(t.app)
             .get('/api/v1/auth/me')

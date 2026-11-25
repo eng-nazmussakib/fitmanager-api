@@ -8,9 +8,9 @@ import { createLogger, log, setRootLogger } from './lib/logger.ts';
 /**
  * The Node entry for local development and tests' manual runs (`npm run dev`): config → logger → dependencies →
  * HTTP server, and the reverse on Ctrl-C. The hosted demo runs the same `createApp(deps)` on Cloudflare Workers
- * (`src/worker.ts`). There are no scheduled jobs (D-075).
+ * (`src/worker.ts`). There are no scheduled jobs.
  *
- * The API never changes the schema or seeds data (D-039): `fitmanager-infra/db` does, before the API starts
+ * The API never changes the schema or seeds data: `fitmanager-infra/db` does, before the API starts
  * (`npm run migrate` / `npm run seed` there).
  */
 let config: Config;

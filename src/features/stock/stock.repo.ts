@@ -5,7 +5,7 @@ import { averageCost } from '#src/features/pos/pos-pricing.ts';
 import { AppError } from '#src/lib/http.ts';
 
 /**
- * The stock ledger (phase 6, D-101): every change to a branch's stock is one `stock_movement` row, written here only,
+ * The stock ledger: every change to a branch's stock is one `stock_movement` row, written here only,
  * in the caller's transaction, with the stock row locked. Units coming in (received, returned, a transfer in, a
  * positive adjustment) move the weighted average cost; units going out leave the branch at it. Stock never goes
  * below zero: the move is refused (409) first, and the table's check would catch one that slipped through.

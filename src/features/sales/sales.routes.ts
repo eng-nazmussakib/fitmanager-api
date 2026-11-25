@@ -24,7 +24,7 @@ import {
 } from './sales.service.ts';
 
 /**
- * Sales and money at the branch in `X-Branch-Id` (phase 2 steps 4–5).
+ * Sales and money at the branch in `X-Branch-Id`.
  * - `POST /v1/subscriptions/quote`, `POST /v1/subscriptions` (`create Subscription`; > 20 % off needs `manage`)
  * - `POST /v1/subscriptions/:oid/freeze` `{ from?, days, reason }`, `/cancel` `{ reason }`, `/upgrade`
  *   `{ plan_oid, payment }` (`update Subscription`: a manager)

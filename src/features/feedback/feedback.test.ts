@@ -47,7 +47,7 @@ const file = (as: Record<string, string>, body: Record<string, unknown>, path = 
         .set(as)
         .send({ category: 'facilities', subject: 'Cold showers', body: 'The men’s showers have been cold all week.', ...body });
 
-describe('complaints (D-095)', () => {
+describe('complaints', () => {
     it('a member files in the portal; overdue after 48 hours with no reply; resolved, then accepted (closed)', async () => {
         const m = await portalMember(t.app, desk, phone());
         const c = (await file(m.me, {}).expect(201)).body.data as Complaint;
@@ -121,7 +121,7 @@ describe('complaints (D-095)', () => {
     });
 });
 
-describe('NPS and ratings (D-096)', () => {
+describe('NPS and ratings', () => {
     it('the NPS card shows after 30 days, at most every 90 days; a dismissal counts', async () => {
         const m = await portalMember(t.app, desk, phone());
         expect((await request(t.app).get('/api/v1/me/feedback').set(m.me).expect(200)).body.data.nps_due).toBe(false);
